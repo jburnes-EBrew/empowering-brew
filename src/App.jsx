@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BackIcon, CheckIcon, ClipboardIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
+import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
 import { loadState, saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
+import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
 import { Brand, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
@@ -72,6 +73,9 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
   const [message, setMessage] = useState('Ready to record a sale');
   const [optionProduct, setOptionProduct] = useState(null);
   const [lastSaleId, setLastSaleId] = useState(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
+  const due = backupDue(state, now);
   const slots = useMemo(() => salesSlots(state, temperature), [state.menuItems, state.products, temperature]);
   const counts = useMemo(() => Object.fromEntries(['hot', 'iced'].map((temp) => [temp, salesSlots(state, temp).filter((slot) => slot.product?.temperature === temp).length])), [state.menuItems, state.products]);
   const columns = slots.length <= 12 ? 3 : 4;
@@ -100,6 +104,13 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     setMessage('Last sale removed');
   };
 
+  const saveBackup = async () => {
+    const savedAt = new Date().toISOString();
+    if (!await saveFile(`empowering-brew-sales-${dateStamp()}.csv`, toCsv(salesCsvRows(state.sales)), 'text/csv')) return;
+    setState((current) => ({ ...current, settings: { ...current.settings, lastSalesBackupAt: savedAt } }));
+    setMessage('Backup saved');
+  };
+
   const switchTo = (temp) => { setTemperature(temp); setMessage(`${prettyTemperature(temp)} drinks`); };
 
   return <main className={`app-shell sales-shell ${temperature}`}>
@@ -124,7 +135,10 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     </section>
     <footer className={`confirmation-rail ${lastSaleId ? 'has-sale' : ''}`} aria-live="polite">
       <div className="confirmation-message"><span className="confirm-icon"><CheckIcon size={28} /></span><strong>{message}</strong></div>
-      <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
+      <div className="rail-actions">
+        {due && <button className="backup-button" onClick={saveBackup}><DownloadIcon size={23} /> Save backup</button>}
+        <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
+      </div>
     </footer>
     {optionProduct && <OptionPicker title={productLabel(state, optionProduct)} options={optionProduct.options} onClose={() => setOptionProduct(null)} onSelect={(option) => { recordSale(optionProduct, option); setOptionProduct(null); }} />}
   </main>;

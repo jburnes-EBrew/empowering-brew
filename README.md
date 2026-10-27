@@ -7,7 +7,13 @@ iPad sales and inventory tracker for the Empowering Brew student coffee shop.
 - **Recipes:** loaded from the Pinckney Panther recipe cards and fully editable. Use **Change syrup pumps** for quick pump changes, or **Edit full recipe** for anything else. Every save is a new version, and past sales keep the recipe they were made with.
 - **Inventory:** estimated usage from sales, waste/spill/restock/remake tracking, and student physical counts that staff review before balances change.
 
-All data is stored on the device (browser storage). Each iPad keeps its own records; use **Reports → Export CSV** to save sales off the device.
+All data is stored on the device (browser storage). Each iPad keeps its own records.
+
+## Backups
+
+- **Daily reminder:** after 3 PM (staff can change the time), if there are sales that have not been backed up, a **Save backup** button appears on the sales screen. One tap opens the iPad share sheet: choose **Save to Files**, Google Drive, AirDrop, or Mail. The file is a CSV of every sale to date, so any single backup is complete. A missed day keeps reminding until a backup is saved.
+- **Staff → Reports → Backups:** save the sales CSV, save a **full backup** (sales, recipes, inventory, counts, settings), or **restore** a full backup onto this or another iPad.
+- Browsers cannot download files on a schedule or while the app is closed, so the backup needs one tap.
 
 See `menu-recipe-inventory-validation.md` for the menu, recipe and inventory validation and the list of details still needed for complete estimates.
 

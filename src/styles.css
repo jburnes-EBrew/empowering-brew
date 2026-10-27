@@ -70,6 +70,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .confirmation-message { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .confirmation-message strong { font-size: clamp(1rem, 1.8vw, 1.35rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .confirm-icon { width: 43px; height: 43px; flex: 0 0 auto; border-radius: 50%; background: var(--sage); color: white; display: grid; place-items: center; }
+.rail-actions { display: flex; gap: 10px; flex: 0 0 auto; }
+.backup-button { min-height: 48px; border: 0; border-radius: 11px; padding: 0 18px; display: flex; align-items: center; gap: 8px; background: var(--brand-navy); color: white; font-weight: 800; cursor: pointer; animation: backup-pulse 2.4s ease-in-out 3; }
+@keyframes backup-pulse { 50% { box-shadow: 0 0 0 6px rgba(1, 52, 132, .2); } }
+.backup-panel { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; padding: 16px 18px; margin-bottom: 24px; border: 2px solid var(--line); border-left: 6px solid var(--brand-navy); border-radius: 13px; background: white; }
+.backup-panel h3 { margin: 0 0 4px; font-size: 1.15rem; }
+.backup-panel p { margin: 0; color: var(--muted); max-width: 520px; line-height: 1.4; }
+.backup-panel .backup-message { margin-top: 6px; color: #2e612f; font-weight: 750; }
+.backup-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.file-button { position: relative; overflow: hidden; }
+.file-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.backup-time { display: grid; gap: 3px; font-weight: 750; font-size: .85rem; color: var(--espresso); }
+.backup-time input { min-height: 44px; border: 2px solid var(--line); border-radius: 10px; padding: 0 8px; font-size: 1rem; }
+.backup-time small { color: var(--muted); font-weight: 600; }
 .undo-button { min-width: 126px; min-height: 48px; border: 0; border-radius: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; background: white; color: var(--espresso); font-weight: 800; cursor: pointer; }
 .undo-button:disabled { color: #9b9691; background: #dfddda; cursor: default; }
 

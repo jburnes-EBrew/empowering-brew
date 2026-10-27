@@ -5,7 +5,11 @@ const KEY = 'empowering-brew-state-v1';
 // Upgrades saved data in place. Sales, inventory events, count sessions and the
 // staff PIN are always carried forward; nothing recorded on the iPad is discarded.
 export function migrate(saved) {
-  if (saved?.schemaVersion === SCHEMA_VERSION) return { ...saved, recipes: saved.recipes.map((recipe) => recipe.versionLabel === 'Placeholder v1' ? { ...recipe, versionLabel: SEED_VERSION_LABEL } : recipe) };
+  if (saved?.schemaVersion === SCHEMA_VERSION) return {
+    ...saved,
+    recipes: saved.recipes.map((recipe) => recipe.versionLabel === 'Placeholder v1' ? { ...recipe, versionLabel: SEED_VERSION_LABEL } : recipe),
+    settings: { backupTime: '15:00', lastSalesBackupAt: null, ...saved.settings },
+  };
   if (saved?.schemaVersion !== 2) return cloneInitialState();
   // The opening balance must predate everything already recorded.
   const times = [...(saved.sales || []).map((sale) => sale.soldAt), ...(saved.inventoryEvents || []).map((event) => event.occurredAt)].filter(Boolean).map((iso) => Date.parse(iso));
@@ -57,13 +61,4 @@ export async function hashPin(pin) {
 
 export function uid(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function downloadCsv(filename, rows) {
-  const csv = rows.map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  link.download = filename;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }

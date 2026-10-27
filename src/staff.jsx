@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
-import { downloadCsv, uid } from './storage';
+import { uid } from './storage';
+import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
 import { ESTIMATE_LABELS, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
@@ -23,7 +24,7 @@ export default function StaffWorkspace({ state, setState, staffName, onBack, onS
       {tab === 'products' && <ProductsTab state={state} setState={setState} />}
       {tab === 'recipes' && <RecipesTab state={state} setState={setState} staffName={staffName} />}
       {tab === 'inventory' && <InventoryTab state={state} setState={setState} staffName={staffName} onStartCount={onStartCount} />}
-      {tab === 'reports' && <ReportsTab state={state} />}
+      {tab === 'reports' && <ReportsTab state={state} setState={setState} />}
       {tab === 'history' && <HistoryTab state={state} />}
     </section>
   </main>;
@@ -513,7 +514,7 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-function ReportsTab({ state }) {
+function ReportsTab({ state, setState }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
   const report = useMemo(() => weeklyReport(state, start), [state, start]);
   const shift = (weeks) => setStart((current) => { const next = new Date(current); next.setDate(next.getDate() + weeks * 7); return next; });
@@ -521,11 +522,9 @@ function ReportsTab({ state }) {
   const dates = WEEKDAYS.map((_, index) => { const date = new Date(report.start); date.setDate(date.getDate() + index); return date; });
   const totals = WEEKDAYS.map((_, index) => report.rows.reduce((sum, row) => sum + row.days[index], 0));
   const revenue = report.sales.reduce((sum, sale) => sum + (sale.price || 0), 0);
-  const exportCsv = () => downloadCsv(`empowering-brew-sales-${report.start.toISOString().slice(0, 10)}.csv`, [
-    ['Date', 'Time', 'Product', 'Temperature', 'Flavor', 'Price', 'Source name', 'Recipe version', 'Estimate status', 'Estimated usage'],
-    ...report.sales.map((sale) => { const at = new Date(sale.soldAt); return [at.toLocaleDateString('en-US'), at.toLocaleTimeString('en-US'), sale.productName, prettyTemperature(sale.temperature), sale.option || '', sale.price?.toFixed(2), sale.sourceName, sale.recipeVersionId || '', ESTIMATE_LABELS[sale.estimateStatus] || '', (sale.usage || []).map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join('; ')]; }),
-  ]);
+  const exportCsv = () => saveFile(`empowering-brew-sales-week-of-${dateStamp(report.start)}.csv`, toCsv(salesCsvRows(report.sales)), 'text/csv');
   return <>
+    <BackupPanel state={state} setState={setState} />
     <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
@@ -538,6 +537,47 @@ function ReportsTab({ state }) {
     {report.usage.length ? <div className="data-list">{report.usage.map((use) => <div className="data-row simple-row" key={`${use.itemName}-${use.unit}`}><span><strong>{use.itemName}</strong></span><span>{formatNumber(use.quantity)} {use.unit}</span></div>)}</div>
       : <p className="subheading-help">No usage estimated yet. Usage appears once recipes have confirmed inventory items, standard amounts, and measured pump volumes.</p>}
   </>;
+}
+
+function BackupPanel({ state, setState }) {
+  const [message, setMessage] = useState('');
+  const last = state.settings?.lastSalesBackupAt;
+  const markSaved = (savedAt) => setState((current) => ({ ...current, settings: { ...current.settings, lastSalesBackupAt: savedAt } }));
+  const saveSales = async () => {
+    const savedAt = new Date().toISOString();
+    if (await saveFile(`empowering-brew-sales-${dateStamp()}.csv`, toCsv(salesCsvRows(state.sales)), 'text/csv')) { markSaved(savedAt); setMessage('Sales backup saved.'); }
+  };
+  const saveFull = async () => {
+    const savedAt = new Date().toISOString();
+    if (await saveFile(`empowering-brew-full-backup-${dateStamp()}.json`, fullBackupText(state), 'application/json')) { markSaved(savedAt); setMessage('Full backup saved.'); }
+  };
+  const restore = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const { state: restored, exportedAt } = parseFullBackup(await file.text());
+      const when = exportedAt ? timeLabel(exportedAt) : 'an unknown date';
+      if (!window.confirm(`Replace everything on this iPad with the backup from ${when}? It has ${restored.sales.length} ${restored.sales.length === 1 ? 'sale' : 'sales'}. Anything recorded here since then will be lost.`)) return;
+      setState(restored);
+      setMessage(`Restored the backup from ${when}.`);
+    } catch (error) {
+      setMessage(error instanceof SyntaxError ? 'That file could not be read.' : error.message);
+    }
+  };
+  return <section className="backup-panel">
+    <div>
+      <h3>Backups</h3>
+      <p>Last backup: <strong>{last ? timeLabel(last) : 'never'}</strong>. Data is saved only on this iPad, so save a copy somewhere else (Files, Google Drive, email) every day.</p>
+      {message && <p className="backup-message" role="status">{message}</p>}
+    </div>
+    <div className="backup-actions">
+      <button className="button primary" onClick={saveSales} disabled={!state.sales.length}><DownloadIcon size={20} /> Sales CSV (all days)</button>
+      <button className="button secondary" onClick={saveFull}><DownloadIcon size={20} /> Full backup</button>
+      <label className="button secondary file-button">Restore full backup<input type="file" accept=".json,application/json" onChange={restore} /></label>
+      <label className="backup-time">Daily reminder<input type="time" value={state.settings?.backupTime || ''} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, backupTime: event.target.value } }))} /><small>Clear to turn off</small></label>
+    </div>
+  </section>;
 }
 
 /* ---------- History ---------- */

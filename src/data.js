@@ -173,7 +173,7 @@ export function cloneInitialState(now = new Date().toISOString()) {
     inventoryEvents: inventory.map((entry) => ({ id: `opening-${entry.id}`, type: 'opening', itemId: entry.id, itemName: entry.name, countedValue: entry.onHand, at: now, by: 'Coffee Shop Inventory workbook', note: 'Opening balance from the On Hand column' })),
     sales: [],
     countSessions: [],
-    settings: { studentCounts: true },
+    settings: { studentCounts: true, backupTime: '15:00', lastSalesBackupAt: null },
     staffPinHash: null,
   };
 }
