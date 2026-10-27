@@ -3,7 +3,7 @@ import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, H
 import { downloadCsv, uid } from './storage';
 import { INVENTORY_CATEGORIES } from './data';
 import { ESTIMATE_LABELS, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
-import { Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
+import { Brand, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
 
@@ -12,7 +12,7 @@ export default function StaffWorkspace({ state, setState, staffName, onBack, onS
   const pendingCounts = state.countSessions.filter((session) => session.status === 'pending').length;
   return <main className="app-shell staff-shell">
     <header className="topbar">
-      <div className="brand"><CupLogo /><span>Empowering Brew</span></div>
+      <Brand />
       <h1>Staff workspace</h1>
       <button className="back-button" onClick={onBack}><BackIcon size={23} /> Back to sales</button>
     </header>

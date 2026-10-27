@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BackIcon, CheckIcon, ClipboardIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon, CupLogo } from './icons';
+import { BackIcon, CheckIcon, ClipboardIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
 import { loadState, saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
 import { INVENTORY_CATEGORIES } from './data';
-import { Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
+import { Brand, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
 
 function App() {
@@ -45,6 +45,7 @@ function StaffGate({ pinHash, initialName, onSaveHash, onSuccess, onClose }) {
 
   return <Modal title={creating ? 'Create staff PIN' : 'Staff access'} onClose={onClose}>
     <form onSubmit={submit} className="stack-form">
+      <LogoFull className="gate-logo" />
       <div className="modal-intro"><LockIcon size={32} /><p>{creating ? 'Choose a four-number PIN for staff controls on this device.' : 'Enter the staff PIN to manage products, recipes, inventory, and counts.'}</p></div>
       <label>Your name<input autoFocus={!initialName} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>
       <label>Four-number PIN<input autoFocus={!!initialName} type="password" inputMode="numeric" pattern="[0-9]*" maxLength="4" value={pin} onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))} /></label>
@@ -103,7 +104,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
 
   return <main className={`app-shell sales-shell ${temperature}`}>
     <header className="topbar">
-      <div className="brand"><CupLogo /><span>Empowering Brew</span></div>
+      <Brand />
       <time>{todayLabel()}</time>
       <div className="topbar-actions">
         {state.settings?.studentCounts && <button className="staff-button" onClick={onCount}><ClipboardIcon size={19} /> Count</button>}
@@ -166,7 +167,7 @@ function CountScreen({ state, setState, countedBy, onDone }) {
   };
   const categories = [...INVENTORY_CATEGORIES, ...new Set(items.map((item) => item.category).filter((category) => !INVENTORY_CATEGORIES.includes(category)))];
   return <main className="app-shell count-shell">
-    <header className="topbar"><div className="brand"><CupLogo /><span>Empowering Brew</span></div><h1>Inventory count</h1><button className="back-button" onClick={onDone}><BackIcon size={23} /> Cancel</button></header>
+    <header className="topbar"><Brand /><h1>Inventory count</h1><button className="back-button" onClick={onDone}><BackIcon size={23} /> Cancel</button></header>
     <section className="count-content">
       <div className="count-intro"><div><h2>Count what you see</h2><p>Enter how many of each item are on the shelf. Use decimals for partly used containers, such as 0.5 for half. Leave an item blank if you did not count it. A staff member checks your count before anything changes.</p></div><strong>{completed} of {items.length}</strong></div>
       <label className="counter-name">Your name<input value={name} onChange={(event) => setName(event.target.value)} /></label>
