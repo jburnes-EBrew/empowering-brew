@@ -4,7 +4,7 @@ import { uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
 import { ESTIMATE_LABELS, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
-import { Brand, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
+import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
 
@@ -26,6 +26,7 @@ export default function StaffWorkspace({ state, setState, staffName, onBack, onS
       {tab === 'inventory' && <InventoryTab state={state} setState={setState} staffName={staffName} onStartCount={onStartCount} />}
       {tab === 'reports' && <ReportsTab state={state} setState={setState} />}
       {tab === 'history' && <HistoryTab state={state} />}
+      <Credit />
     </section>
   </main>;
 }

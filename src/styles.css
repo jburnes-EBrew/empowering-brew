@@ -248,6 +248,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .units-row input, .units-row select { width: 100%; min-height: 44px; border: 2px solid var(--line); border-radius: 9px; padding: 0 8px; background: white; font-size: 1rem; color: var(--espresso); }
 .units-row .holds { display: grid; grid-template-columns: 1fr 76px; gap: 6px; }
 .units-head { font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.credit { margin: 28px 0 0; text-align: center; color: var(--muted); font-size: .8rem; letter-spacing: .02em; }
+.modal .credit { margin-top: 16px; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .pump-list { display: grid; gap: 8px; }
 .pump-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: white; }

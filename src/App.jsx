@@ -4,7 +4,7 @@ import { loadState, saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
-import { Brand, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
+import { Brand, Credit, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
 
 function App() {
@@ -54,6 +54,7 @@ function StaffGate({ pinHash, initialName, onSaveHash, onSuccess, onClose }) {
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary">{creating ? 'Save PIN' : 'Continue'}</button></div>
     </form>
+    <Credit />
   </Modal>;
 }
 

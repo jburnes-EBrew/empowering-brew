@@ -2,6 +2,10 @@
 
 iPad sales and inventory tracker for the Empowering Brew student coffee shop.
 
+Built by Jennifer Burnes.
+
+**Try it:** https://jburnes-ebrew.github.io/empowering-brew/ (works in any browser; anything you enter stays in your own browser). The first tap on **Staff** asks you to create a PIN for that browser.
+
 - **Sales screen:** Hot / Iced selector with one large button per menu item. Every sale records the product, its temperature, and (for flavored lattes) the flavor.
 - **Staff workspace (PIN protected):** products, recipes, inventory, weekly reports, and history.
 - **Recipes:** loaded from the Pinckney Panther recipe cards and fully editable. Use **Change syrup pumps** for quick pump changes, or **Edit full recipe** for anything else. Every save is a new version, and past sales keep the recipe they were made with.
