@@ -234,6 +234,20 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .stack-form .narrow-input { width: 96px; min-height: 44px; }
 .chip { min-height: 44px; border: 2px solid var(--line); border-radius: 22px; padding: 0 16px; background: white; color: var(--espresso); font-weight: 750; cursor: pointer; }
 .chip.selected { background: var(--espresso); border-color: var(--espresso); color: white; }
+.recipe-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 8px; }
+.recipe-row > .recipe-detail { grid-column: 1 / -1; }
+.recipe-row-actions { display: flex; gap: 4px; }
+.units-banner { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 15px 17px; margin-bottom: 14px; border-radius: 13px; background: #fff0d7; color: #6b4a1d; }
+.units-banner.done { background: var(--sage-soft); color: #29482a; }
+.units-banner div { display: grid; gap: 3px; }
+.units-banner span { color: var(--muted); }
+.units-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 4px; }
+.units-table { border-top: 1px solid var(--line); margin-bottom: 16px; }
+.units-row { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr .8fr; gap: 10px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+.units-row small { display: block; color: var(--muted); font-size: .76rem; }
+.units-row input, .units-row select { width: 100%; min-height: 44px; border: 2px solid var(--line); border-radius: 9px; padding: 0 8px; background: white; font-size: 1rem; color: var(--espresso); }
+.units-row .holds { display: grid; grid-template-columns: 1fr 76px; gap: 6px; }
+.units-head { font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .pump-list { display: grid; gap: 8px; }
 .pump-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 2px solid var(--line); border-radius: 12px; background: white; }

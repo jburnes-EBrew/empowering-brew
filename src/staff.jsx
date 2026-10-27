@@ -179,6 +179,10 @@ function RecipesTab({ state, setState, staffName }) {
             <span><StatusPill status={estimate.status} />{estimate.gaps.length > 0 && <small>{estimate.gaps.length} details needed</small>}</span>
             <DownIcon />
           </button>
+          <div className="recipe-row-actions">
+            {recipe.lines.some((line) => line.unit === 'pump') && <button className="text-action" onClick={() => setEditingPumps(recipe)}><EditIcon size={18} /> Pumps</button>}
+            <button className="text-action" onClick={() => setEditing({ recipe })}><EditIcon size={18} /> Edit</button>
+          </div>
           {open === recipe.recipeKey && <RecipeDetail state={state} recipe={recipe} estimate={estimate} linked={linked} onEdit={() => setEditing({ recipe })} onEditPumps={() => setEditingPumps(recipe)} />}
         </article>;
       })}
@@ -347,6 +351,9 @@ const unitLabel = (item) => item.countUnit || 'source unit';
 function InventoryTab({ state, setState, staffName, onStartCount }) {
   const [eventItem, setEventItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [unitsOpen, setUnitsOpen] = useState(false);
+  const unitsReady = state.inventory.filter((item) => item.active && unitsComplete(item, pumpedItemIds(state))).length;
+  const activeItems = state.inventory.filter((item) => item.active).length;
   const [drinkEvent, setDrinkEvent] = useState(false);
   const [reviewing, setReviewing] = useState(null);
   const balances = useMemo(() => inventoryBalances(state), [state]);
@@ -371,6 +378,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
       <button className="button secondary" onClick={() => setEditingItem({ id: uid('item'), name: '', sourceName: '', category: INVENTORY_CATEGORIES[0], full: 0, onHand: 0, need: 0, countUnit: '', usageUnit: '', usagePerCount: null, ozPerPump: null, active: true, note: '' })}><PlusIcon size={20} /> Add item</button>
       <button className="button primary" onClick={onStartCount}><ClipboardIcon size={20} /> Start count</button>
     </>} />
+    <div className={`units-banner ${unitsReady === activeItems ? 'done' : ''}`}><div><strong>Units & sizes set for {unitsReady} of {activeItems} items</strong><span>What each item is counted in (gallon, can, bottle) and how much it holds. Estimates can only subtract recipe usage from items that are set up.</span></div><button className="button primary" onClick={() => setUnitsOpen(true)}>Units & sizes</button></div>
     <label className="check-label setting-toggle"><input type="checkbox" checked={!!state.settings?.studentCounts} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, studentCounts: event.target.checked } }))} /> Show the Count button on the student sales screen</label>
     {pending.map((session) => <div className="pending-review" key={session.id}><div><strong>Count from {session.countedBy || 'a student'} awaiting review</strong><span>Submitted {timeLabel(session.submittedAt)} · {Object.keys(session.counts).length} items counted</span></div><button className="button primary" onClick={() => setReviewing(session)}>Review count</button></div>)}
     {categories.map((category) => {
@@ -397,6 +405,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
       </section>;
     })}
     {eventItem && <InventoryEventEditor item={eventItem} onClose={() => setEventItem(null)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setEventItem(null); }} />}
+    {unitsOpen && <UnitsSetup state={state} onClose={() => setUnitsOpen(false)} onSave={(updates) => { setState((current) => ({ ...current, inventory: current.inventory.map((item) => updates[item.id] ? { ...item, ...updates[item.id] } : item) })); setUnitsOpen(false); }} />}
     {editingItem && <ItemEditor item={editingItem} isNew={!state.inventory.some((entry) => entry.id === editingItem.id)} onSave={saveItem} onClose={() => setEditingItem(null)} />}
     {drinkEvent && <DrinkEventEditor state={state} onClose={() => setDrinkEvent(false)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setDrinkEvent(false); }} />}
     {reviewing && <CountReview state={state} session={reviewing} balances={balances} staffName={staffName} onClose={() => setReviewing(null)} onFinish={(events, status) => {
@@ -405,6 +414,42 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
       setReviewing(null);
     }} />}
   </>;
+}
+
+// Items that recipes measure in pumps need a measured pump volume as well.
+const pumpedItemIds = (state) => new Set(state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines).filter((line) => line.unit === 'pump' && line.itemId).map((line) => line.itemId));
+const unitsComplete = (item, pumped) => !!item.countUnit && !!item.usageUnit && item.usagePerCount > 0 && (!pumped.has(item.id) || item.ozPerPump > 0);
+const COUNT_UNITS = ['gallon', 'half gallon', 'quart', 'bottle', 'can', 'jar', 'bag', 'box', 'sleeve', 'pack', 'case', 'roll', 'each'];
+
+// One screen for every item's package size, so setup does not take 39 separate edits.
+function UnitsSetup({ state, onSave, onClose }) {
+  const pumped = useMemo(() => pumpedItemIds(state), [state]);
+  const inRecipes = useMemo(() => new Set(state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines).map((line) => line.itemId).filter(Boolean)), [state]);
+  const items = state.inventory.filter((item) => item.active);
+  const [drafts, setDrafts] = useState(() => Object.fromEntries(items.map((item) => [item.id, { countUnit: item.countUnit, usageUnit: item.usageUnit || 'oz', usagePerCount: item.usagePerCount ?? '', ozPerPump: item.ozPerPump ?? '' }])));
+  const [onlyRecipes, setOnlyRecipes] = useState(false);
+  const set = (id, patch) => setDrafts((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
+  const save = () => onSave(Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { countUnit: draft.countUnit.trim(), usageUnit: draft.countUnit.trim() ? draft.usageUnit : '', usagePerCount: numberOrNull(String(draft.usagePerCount)), ozPerPump: numberOrNull(String(draft.ozPerPump)) }])));
+  const shown = items.filter((item) => !onlyRecipes || inRecipes.has(item.id));
+  const done = items.filter((item) => unitsComplete({ ...item, ...drafts[item.id], usagePerCount: Number(drafts[item.id].usagePerCount), ozPerPump: Number(drafts[item.id].ozPerPump) }, pumped)).length;
+  return <Modal title="Units & sizes" onClose={onClose} wide>
+    <p className="field-help">For each item, enter what you count it in and how much one holds, the way recipes measure it. Examples: Whole Milk, 1 gallon = 128 oz · Whip, 1 can = 10 oz · a 750 mL syrup bottle = 25.4 oz · Hot cups, 1 sleeve = 50 each · Coffee, 1 bag = how many espresso shots. Leave anything you don't know yet blank.</p>
+    <div className="units-toolbar"><strong>{done} of {items.length} complete</strong><label className="check-label"><input type="checkbox" checked={onlyRecipes} onChange={(event) => setOnlyRecipes(event.target.checked)} /> Only items used in recipes</label></div>
+    <datalist id="count-units">{COUNT_UNITS.map((unit) => <option key={unit} value={unit} />)}</datalist>
+    <div className="units-table">
+      <div className="units-row units-head"><span>Item</span><span>Counted in</span><span>One holds</span><span>Oz per pump</span></div>
+      {shown.map((item) => {
+        const draft = drafts[item.id];
+        return <div className="units-row" key={item.id}>
+          <span><strong>{item.name}</strong><small>{item.category}{inRecipes.has(item.id) ? ' · used in recipes' : ''}</small></span>
+          <span><input list="count-units" value={draft.countUnit} onChange={(event) => set(item.id, { countUnit: event.target.value })} placeholder="choose or type" aria-label={`${item.name} counted in`} /></span>
+          <span className="holds"><input type="number" step="any" min="0" value={draft.usagePerCount} onChange={(event) => set(item.id, { usagePerCount: event.target.value })} aria-label={`Amount in one ${draft.countUnit || 'unit'} of ${item.name}`} /><select value={draft.usageUnit} onChange={(event) => set(item.id, { usageUnit: event.target.value })} aria-label={`${item.name} size unit`}>{UNITS.filter(Boolean).filter((unit) => unit !== 'pump').map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></span>
+          <span>{pumped.has(item.id) || item.category === 'Syrups & sauces' ? <input type="number" step="any" min="0" value={draft.ozPerPump} onChange={(event) => set(item.id, { ozPerPump: event.target.value })} placeholder="measure" aria-label={`${item.name} ounces per pump`} /> : <small>—</small>}</span>
+        </div>;
+      })}
+    </div>
+    <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="button" className="button primary" onClick={save}>Save units</button></div>
+  </Modal>;
 }
 
 function ItemEditor({ item, isNew, onSave, onClose }) {

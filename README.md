@@ -5,6 +5,7 @@ iPad sales and inventory tracker for the Empowering Brew student coffee shop.
 - **Sales screen:** Hot / Iced selector with one large button per menu item. Every sale records the product, its temperature, and (for flavored lattes) the flavor.
 - **Staff workspace (PIN protected):** products, recipes, inventory, weekly reports, and history.
 - **Recipes:** loaded from the Pinckney Panther recipe cards and fully editable. Use **Change syrup pumps** for quick pump changes, or **Edit full recipe** for anything else. Every save is a new version, and past sales keep the recipe they were made with.
+- **Units & sizes (Inventory tab):** one screen to enter what each item is counted in and how much it holds (e.g. Whole Milk: 1 gallon = 128 oz; Whip: 1 can = 10 oz) and each syrup's measured ounces per pump.
 - **Inventory:** estimated usage from sales, waste/spill/restock/remake tracking, and student physical counts that staff review before balances change.
 
 All data is stored on the device (browser storage). Each iPad keeps its own records.
