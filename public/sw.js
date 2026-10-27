@@ -1,5 +1,5 @@
-const CACHE = 'empowering-brew-v3';
-const APP_SHELL = ['./', './manifest.webmanifest', './icon-192.png', './brand/cup-mark.png'];
+const CACHE = 'empowering-brew-v4';
+const APP_SHELL = ['./', './manifest.webmanifest', './icon-192.png', './brand/header-lockup.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));

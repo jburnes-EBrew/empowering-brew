@@ -2,7 +2,8 @@ import React from 'react';
 
 const asset = (path) => `${import.meta.env.BASE_URL}${path}`;
 
-export const Brand = () => <div className="brand"><img className="brand-mark" src={asset('brand/cup-mark.png')} alt="" /><span><b>Empowering</b> <em>Brew</em></span></div>;
+// The header uses the logo's own lettering (cup, EMPOWERING, BREW in one row) so it matches the printed logo.
+export const Brand = () => <div className="brand"><img className="brand-lockup" src={asset('brand/header-lockup.png')} alt="Empowering Brew" /></div>;
 export const LogoFull = ({ className = '' }) => <img className={className} src={asset('brand/empowering-brew-logo.png')} alt="Empowering Brew" />;
 
 export const todayLabel = () => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date());
