@@ -1,0 +1,6 @@
+node_modules/
+dist/
+output/
+.DS_Store
+# Source workbooks, recipe PDF and photos stay on this computer, not on GitHub.
+Inputs/

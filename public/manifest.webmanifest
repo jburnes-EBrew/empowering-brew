@@ -1,0 +1,13 @@
+{
+  "name": "Empowering Brew",
+  "short_name": "Brew",
+  "description": "Accessible coffee shop sales and inventory tracking",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fffdfa",
+  "theme_color": "#442719",
+  "orientation": "landscape-primary",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
