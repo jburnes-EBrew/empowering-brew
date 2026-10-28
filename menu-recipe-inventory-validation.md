@@ -266,3 +266,14 @@ The app pre-selects these inventory items on recipe lines, but every link starts
 
 - Spelling, spacing, hyphen and capitalization differences in the workbook names are fine as they are. The app no longer shows review notes for them. The exact workbook text is still kept as each product's source name.
 - Flavored lattes can be any syrup listed on the menu. The flavor is chosen at the register for each sale. Pumps per flavor are still to come from the worksheet.
+
+## Setup worksheets applied (2026-10-28)
+
+Both worksheets in `Inputs/` were built in as a one-time update (`src/updates.js`). It runs once per device and fills only blank fields. It adds a new version for a recipe only when that device still has the card version, so recipe-card history and past sales are kept.
+
+- Signature drinks: a new "Setup worksheet (Oct 2026)" version. Pumps are unchanged from the cards. Milk is 6.9 oz hot and iced, ice 2 oz, whip 4 Tbs, drizzles 2 Tbs and cinnamon sugar 0.1 oz. Inventory links are confirmed where the worksheet named an item.
+- New recipes: Cafe Latte No Flavor and Cafe Latte Flavored (hot and iced), Espresso (hot), Black Coffee (hot) and Hot Tea.
+- Flavored latte: 9 one-tap choices. Each uses its own syrup at 3 pumps. Drizzle follows the Latte flavors tab, and the student picks it for Vanilla and Sugar-Free Vanilla. Plain latte: No topping, Whipped topping, or whip plus chocolate or caramel drizzle.
+- Black Coffee is now also offered iced, with no recipe yet. Hot Tea is hot only.
+- Units and sizes were filled in from the worksheet. Interpretations: 20 lb ice bag = 320 oz. 2 Cup Holders are counted "each" (the sheet said oz). Espresso is counted in shots (the sheet said 2 oz = 2 shots). Hot cinnamon sugar is 0.1 oz (the unit cell said 0.1).
+- Still flagged in the app: lids, straws and tea bags (no inventory items yet); ground coffee per espresso shot; brewed coffee vs. grounds; chocolate drizzle and cookie crumb items; Black Panther dark chocolate sauce item; Cinnamon Sugar syrup; Tbs-to-container conversions for whip, drizzles and toppings.

@@ -13,12 +13,20 @@ export function lineQuantity(line) {
   return line.calcAmount ?? null;
 }
 
-export function estimateUsage(recipe, inventory) {
+// Lines with `forOptions` apply only when the sale's option (e.g. a latte flavor) is one
+// of them. With no option given (recipe screens), every line is checked for missing
+// details but only the lines used by every sale are counted as usage.
+export const lineApplies = (entry, option) => !entry.forOptions?.length || entry.forOptions.includes(option);
+
+export function estimateUsage(recipe, inventory, option) {
   if (!recipe) return { status: 'not-configured', usage: [], gaps: ['No recipe linked to this product'] };
   const usage = [];
   const gaps = [];
+  const anyOption = option === undefined;
   for (const entry of recipe.lines) {
     if (entry.excluded) continue;
+    if (!anyOption && !lineApplies(entry, option)) continue;
+    const countUsage = !anyOption || !entry.forOptions?.length;
     const quantity = lineQuantity(entry);
     if (quantity == null) {
       gaps.push(entry.amount ? `${entry.label}: choose a standard amount within ${formatRange(entry.amount, entry.unit)}` : `${entry.label}: quantity not specified`);
@@ -33,7 +41,13 @@ export function estimateUsage(recipe, inventory) {
       if (!ounces) { gaps.push(`${entry.label}: pump volume not measured for ${item.name}`); continue; }
       amount = quantity * ounces;
       unit = 'oz';
+    } else if (unit === 'shot' && item.usageUnit !== 'shot') {
+      const ounces = item.ozPerShot;
+      if (!ounces) { gaps.push(`${entry.label}: ground coffee per shot not set for ${item.name}`); continue; }
+      amount = quantity * ounces;
+      unit = 'oz';
     }
+    if (!countUsage) continue;
     usage.push({ itemId: item.id, itemName: item.name, quantity: round(amount), unit: unit || 'each' });
   }
   return { status: gaps.length ? (usage.length ? 'partial' : 'incomplete') : 'complete', usage, gaps };

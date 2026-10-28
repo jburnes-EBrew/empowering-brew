@@ -1,5 +1,6 @@
 export const SCHEMA_VERSION = 3;
 export const RECIPE_SOURCE = 'pinckney_panther_10_hot_and_iced_recipe_cards_5x7.pdf (created 2026-09-29)';
+export const SYRUP_NOTE_V1 = 'Cards say 1 pump = 1/4 oz. Measure this dispenser before entering ounces per pump.';
 export const SEED_VERSION_LABEL = 'Recipe cards v1';
 
 // Customer-facing menu items. Hot and iced variants of the same drink share one
@@ -53,8 +54,8 @@ export const seedProducts = [
 // Recipe lines keep the card's wording and amounts. `amount: null` means the card
 // gives no quantity; nothing is filled in on the card's behalf. Inventory links are
 // only suggestions until staff confirm them, and only confirmed links feed estimates.
-const line = (id, role, label, amount, unit, suggestedItemId = null, note = '') => ({ id, role, label, amount, unit, calcAmount: null, itemId: suggestedItemId, itemConfirmed: false, ozPerPump: null, excluded: false, note });
-const fixed = (value) => ({ min: value, max: value });
+export const line = (id, role, label, amount, unit, suggestedItemId = null, note = '') => ({ id, role, label, amount, unit, calcAmount: null, itemId: suggestedItemId, itemConfirmed: false, ozPerPump: null, excluded: false, note });
+export const fixed = (value) => ({ min: value, max: value });
 
 const TOPPING_ITEM = { 'Whipped cream': 'whip', 'Caramel drizzle': 'caramel-drizzle', 'Mini marshmallows': 'marshmallows', 'Cinnamon sugar': 'cinnamon' };
 
@@ -119,8 +120,8 @@ export const INVENTORY_CATEGORIES = ['Coffee & bar', 'Milk & cream', 'Syrups & s
 
 // `onHand` is the workbook value and becomes the opening balance. Units are blank
 // because the workbook does not define them; staff fill them in.
-const inv = (id, name, category, full, onHand, need, note = '') => ({ id, name, sourceName: name, category, full, onHand, need, countUnit: '', usageUnit: '', usagePerCount: null, ozPerPump: null, active: true, note });
-const SYRUP_NOTE = 'Cards say 1 pump = 1/4 oz. Measure this dispenser before entering ounces per pump.';
+const inv = (id, name, category, full, onHand, need, note = '') => ({ id, name, sourceName: name, category, full, onHand, need, countUnit: '', usageUnit: '', usagePerCount: null, ozPerPump: null, ozPerShot: null, active: true, note });
+const SYRUP_NOTE = SYRUP_NOTE_V1;
 
 export const seedInventory = [
   inv('coffee-reg', 'Coffee Reg', 'Coffee & bar', 6, 0, 6),

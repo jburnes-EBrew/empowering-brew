@@ -85,6 +85,8 @@ describe('flavor note update', () => {
     const { FLAVOR_NOTE } = await import('./data');
     const saved = cloneInitialState();
     saved.menuItems = saved.menuItems.map((item) => item.id === 'cafe-latte-flavored' ? { ...item, reviewNote: 'Workbook does not say which flavor or how much; flavor is recorded as a sale option only.' } : item);
-    expect(migrate(saved).menuItems.find((item) => item.id === 'cafe-latte-flavored').reviewNote).toBe(FLAVOR_NOTE);
+    // The old note becomes the interim note, which the worksheet update then clears.
+    expect(migrate(saved).menuItems.find((item) => item.id === 'cafe-latte-flavored').reviewNote).toBe('');
+    expect(FLAVOR_NOTE).toBeTruthy();
   });
 });

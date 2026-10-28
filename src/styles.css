@@ -232,6 +232,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .line-editor-row > label.narrow { flex: 0 0 88px; }
 .line-editor-row > label.wide-narrow { flex: 0 0 180px; }
 .line-editor-row > .check-label { flex: 0 0 auto; }
+.option-toggle { align-self: flex-start; font-size: .9rem; }
+.option-row { align-items: center; flex-wrap: wrap; gap: 8px; font-weight: 700; color: var(--muted); }
 .standard-row { align-items: center; background: #fff7ea; padding: 8px 10px; border-radius: 9px; font-weight: 700; color: #6b4a1d; }
 .stack-form .narrow-input { width: 96px; min-height: 44px; }
 .chip { min-height: 44px; border: 2px solid var(--line); border-radius: 22px; padding: 0 16px; background: white; color: var(--espresso); font-weight: 750; cursor: pointer; }

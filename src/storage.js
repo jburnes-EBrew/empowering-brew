@@ -1,4 +1,5 @@
 import { FLAVOR_NOTE, SCHEMA_VERSION, SEED_VERSION_LABEL, cloneInitialState } from './data';
+import { applyWorksheetUpdate } from './updates';
 
 // Spelling notes from the first import; the owner reviewed them and asked for them removed.
 const DISMISSED_NAME_NOTES = new Set(["Extra hyphen in source name.", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Lowercase \"paw\" in source.", "Two spaces before \"ICED\" in source.", "Source spells \"Rolle\".", "Source says \"Pride\"; card and menu say \"Panther\".", "Source says \"Pride\" and \"Cooke.\"; card and menu say \"Panther Cookie\"."]);
@@ -8,7 +9,11 @@ const KEY = 'empowering-brew-state-v1';
 
 // Upgrades saved data in place. Sales, inventory events, count sessions and the
 // staff PIN are always carried forward; nothing recorded on the iPad is discarded.
-export function migrate(saved) {
+// Owner data updates (worksheets) are applied afterwards, once per device.
+export const migrate = (saved) => applyWorksheetUpdate(migrateSchema(saved));
+const freshState = () => migrate(cloneInitialState());
+
+function migrateSchema(saved) {
   if (saved?.schemaVersion === SCHEMA_VERSION) return {
     ...saved,
     menuItems: saved.menuItems.map((item) => item.reviewNote === OLD_FLAVOR_NOTE ? { ...item, reviewNote: FLAVOR_NOTE } : item),
@@ -75,7 +80,7 @@ function storeRequest(mode, run) {
 
 // Turns saved text into app state. Unreadable data is kept, never overwritten.
 async function readSaved(text) {
-  if (text == null) return cloneInitialState();
+  if (text == null) return freshState();
   try {
     const parsed = JSON.parse(text);
     if (![2, SCHEMA_VERSION].includes(parsed?.schemaVersion)) throw new Error('Unknown schema');
@@ -85,7 +90,7 @@ async function readSaved(text) {
     try { await storeRequest('readwrite', (store) => store.put(text, copyKey)); } catch {
       try { localStorage.setItem(`${KEY}-${copyKey}`, text); } catch { /* storage full or blocked */ }
     }
-    return cloneInitialState();
+    return freshState();
   }
 }
 
@@ -95,7 +100,7 @@ export async function loadState() {
     text = await storeRequest('readonly', (store) => store.get(RECORD));
   } catch {
     backend = 'localstorage';
-    try { return await readSaved(localStorage.getItem(KEY)); } catch { return cloneInitialState(); }
+    try { return await readSaved(localStorage.getItem(KEY)); } catch { return freshState(); }
   }
   if (text !== undefined) return readSaved(text);
   // First open since the move to IndexedDB: carry over what localStorage holds.

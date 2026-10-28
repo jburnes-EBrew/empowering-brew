@@ -86,7 +86,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
 
   const recordSale = (product, option = null) => {
     const recipe = currentRecipe(state.recipes, product.recipeKey);
-    const estimate = estimateUsage(recipe, state.inventory);
+    const estimate = estimateUsage(recipe, state.inventory, option);
     const sale = {
       id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
       temperature: product.temperature, option, price: product.price, soldAt: new Date().toISOString(),
