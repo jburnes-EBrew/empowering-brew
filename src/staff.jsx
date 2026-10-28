@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
-import { uid } from './storage';
+import { storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
 import { ESTIMATE_LABELS, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
@@ -587,6 +587,8 @@ function ReportsTab({ state, setState }) {
 
 function BackupPanel({ state, setState }) {
   const [message, setMessage] = useState('');
+  const [storage, setStorage] = useState(null);
+  useEffect(() => { storageStatus().then(setStorage).catch(() => {}); }, [state.sales.length]);
   const last = state.settings?.lastSalesBackupAt;
   const markSaved = (savedAt) => setState((current) => ({ ...current, settings: { ...current.settings, lastSalesBackupAt: savedAt } }));
   const saveSales = async () => {
@@ -616,6 +618,7 @@ function BackupPanel({ state, setState }) {
       <h3>Backups</h3>
       <p>Last backup: <strong>{last ? timeLabel(last) : 'never'}</strong>. Data is saved only on this iPad, so save a copy somewhere else (Files, Google Drive, email) every day.</p>
       {message && <p className="backup-message" role="status">{message}</p>}
+      {storage && <p className="storage-status">{storageSummary(storage)}</p>}
     </div>
     <div className="backup-actions">
       <button className="button primary" onClick={saveSales} disabled={!state.sales.length}><DownloadIcon size={20} /> Sales CSV (all days)</button>
@@ -624,6 +627,15 @@ function BackupPanel({ state, setState }) {
       <label className="backup-time">Daily reminder<input type="time" value={state.settings?.backupTime || ''} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, backupTime: event.target.value } }))} /><small>Clear to turn off</small></label>
     </div>
   </section>;
+}
+
+const sizeLabel = (bytes) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${(bytes / 1e6).toFixed(1)} MB`;
+
+function storageSummary({ backend, persisted, usage, quota }) {
+  const where = backend === 'indexeddb' ? 'Stored in this iPad\'s long-term app storage' : 'Stored in limited browser storage (about 5 MB)';
+  const keep = persisted === true ? 'protected from automatic clearing' : persisted === false ? 'the iPad may clear it if space runs low' : null;
+  const used = usage != null && quota ? `${sizeLabel(usage)} used of ${sizeLabel(quota)} available` : null;
+  return [where, keep, used].filter(Boolean).join(' · ') + '.';
 }
 
 /* ---------- History ---------- */

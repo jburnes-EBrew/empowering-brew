@@ -34,23 +34,95 @@ export function migrate(saved) {
   return next;
 }
 
-export function loadState() {
-  let saved = null;
+// Saved data lives in IndexedDB, which holds hundreds of megabytes (years of sales).
+// localStorage (about 5 MB) is only a fallback for browsers without IndexedDB.
+const DB_NAME = 'empowering-brew';
+const STORE = 'state';
+const RECORD = 'current';
+let database = null;
+let backend = 'indexeddb';
+let pendingSave = Promise.resolve();
+
+function openDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(STORE);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Let a newer version of the app upgrade the database; the next save reopens it.
+      db.onversionchange = () => { db.close(); database = null; };
+      resolve(db);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function storeRequest(mode, run) {
+  database ??= openDatabase();
+  return database.then((db) => new Promise((resolve, reject) => {
+    const transaction = db.transaction(STORE, mode);
+    const request = run(transaction.objectStore(STORE));
+    transaction.oncomplete = () => resolve(request.result);
+    transaction.onerror = transaction.onabort = () => reject(transaction.error);
+  }));
+}
+
+// Turns saved text into app state. Unreadable data is kept, never overwritten.
+async function readSaved(text) {
+  if (text == null) return cloneInitialState();
   try {
-    saved = localStorage.getItem(KEY);
-    if (!saved) return cloneInitialState();
-    const parsed = JSON.parse(saved);
+    const parsed = JSON.parse(text);
     if (![2, SCHEMA_VERSION].includes(parsed?.schemaVersion)) throw new Error('Unknown schema');
     return migrate(parsed);
   } catch {
-    // Keep unreadable data instead of overwriting it, so it can be recovered.
-    try { if (saved) localStorage.setItem(`${KEY}-unreadable-${Date.now()}`, saved); } catch { /* storage full or blocked */ }
+    const copyKey = `unreadable-${Date.now()}`;
+    try { await storeRequest('readwrite', (store) => store.put(text, copyKey)); } catch {
+      try { localStorage.setItem(`${KEY}-${copyKey}`, text); } catch { /* storage full or blocked */ }
+    }
     return cloneInitialState();
   }
 }
 
+export async function loadState() {
+  let text;
+  try {
+    text = await storeRequest('readonly', (store) => store.get(RECORD));
+  } catch {
+    backend = 'localstorage';
+    try { return await readSaved(localStorage.getItem(KEY)); } catch { return cloneInitialState(); }
+  }
+  if (text !== undefined) return readSaved(text);
+  // First open since the move to IndexedDB: carry over what localStorage holds.
+  let legacy = null;
+  try { legacy = localStorage.getItem(KEY); } catch { /* blocked */ }
+  const state = await readSaved(legacy);
+  if (legacy != null && await saveState(state)) {
+    // Keep the old copy under another name so it is recoverable but never loaded again.
+    try { localStorage.setItem(`${KEY}-before-indexeddb`, legacy); localStorage.removeItem(KEY); } catch { /* leave it in place */ }
+  }
+  return state;
+}
+
+// Resolves true once the state is safely stored, false if it could not be saved.
+// Saves run one after another so an older state never lands after a newer one.
 export function saveState(state) {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage full or blocked; state stays in memory */ }
+  const text = JSON.stringify(state);
+  pendingSave = pendingSave.then(async () => {
+    if (backend === 'indexeddb') {
+      try { await storeRequest('readwrite', (store) => store.put(text, RECORD)); return true; } catch { return false; }
+    }
+    try { localStorage.setItem(KEY, text); return true; } catch { return false; }
+  });
+  return pendingSave;
+}
+
+// For the Backups panel: where data is kept and whether the browser may clear it.
+export async function storageStatus() {
+  const [persisted, estimate] = await Promise.all([
+    navigator.storage?.persisted?.().catch(() => null) ?? null,
+    navigator.storage?.estimate?.().catch(() => null) ?? null,
+  ]);
+  return { backend, persisted, usage: estimate?.usage ?? null, quota: estimate?.quota ?? null };
 }
 
 export async function hashPin(pin) {

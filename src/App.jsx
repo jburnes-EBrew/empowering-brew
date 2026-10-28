@@ -1,24 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
-import { loadState, saveState, hashPin, uid } from './storage';
+import { saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
 import { Brand, Credit, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
 
-function App() {
-  const [state, setState] = useState(loadState);
+function App({ initialState }) {
+  const [state, setState] = useState(initialState);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [view, setView] = useState('sales');
   const [staffGateOpen, setStaffGateOpen] = useState(false);
   const [staffName, setStaffName] = useState('');
   const [countOrigin, setCountOrigin] = useState('sales');
 
-  useEffect(() => saveState(state), [state]);
+  useEffect(() => { saveState(state).then((saved) => setSaveFailed(!saved)); }, [state]);
 
   const startCount = (origin) => { setCountOrigin(origin); setView('count'); };
 
   return <>
+    {saveFailed && <p className="save-warning" role="alert">This iPad could not save the latest change. Go to Staff → Reports and tap Full backup now.</p>}
     {view === 'sales' && <SalesScreen state={state} setState={setState} onStaff={() => setStaffGateOpen(true)} onCount={() => startCount('sales')} />}
     {view === 'staff' && <StaffWorkspace state={state} setState={setState} staffName={staffName} onBack={() => setView('sales')} onStartCount={() => startCount('staff')} />}
     {view === 'count' && <CountScreen state={state} setState={setState} countedBy={countOrigin === 'staff' ? staffName : ''} onDone={() => setView(countOrigin)} />}

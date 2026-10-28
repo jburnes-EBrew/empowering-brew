@@ -1,13 +1,14 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { loadState } from './storage';
 import './styles.css';
 
-createRoot(document.getElementById('root')).render(
+loadState().then((initialState) => createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <App initialState={initialState} />
   </React.StrictMode>,
-);
+));
 
 // Ask the browser not to clear this app's saved data when the device is low on space.
 navigator.storage?.persist?.().catch(() => {});
