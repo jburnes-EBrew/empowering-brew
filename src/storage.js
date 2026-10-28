@@ -1,5 +1,7 @@
 import { FLAVOR_NOTE, SCHEMA_VERSION, SEED_VERSION_LABEL, cloneInitialState } from './data';
 
+// Spelling notes from the first import; the owner reviewed them and asked for them removed.
+const DISMISSED_NAME_NOTES = new Set(["Extra hyphen in source name.", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Lowercase \"paw\" in source.", "Two spaces before \"ICED\" in source.", "Source spells \"Rolle\".", "Source says \"Pride\"; card and menu say \"Panther\".", "Source says \"Pride\" and \"Cooke.\"; card and menu say \"Panther Cookie\"."]);
 const OLD_FLAVOR_NOTE = 'Workbook does not say which flavor or how much; flavor is recorded as a sale option only.';
 
 const KEY = 'empowering-brew-state-v1';
@@ -10,6 +12,7 @@ export function migrate(saved) {
   if (saved?.schemaVersion === SCHEMA_VERSION) return {
     ...saved,
     menuItems: saved.menuItems.map((item) => item.reviewNote === OLD_FLAVOR_NOTE ? { ...item, reviewNote: FLAVOR_NOTE } : item),
+    products: saved.products.map((product) => DISMISSED_NAME_NOTES.has(product.reviewNote) ? { ...product, reviewNote: '' } : product),
     recipes: saved.recipes.map((recipe) => recipe.versionLabel === 'Placeholder v1' ? { ...recipe, versionLabel: SEED_VERSION_LABEL } : recipe),
     settings: { backupTime: '15:00', lastSalesBackupAt: null, ...saved.settings },
   };

@@ -25,23 +25,24 @@ export const seedMenuItems = [
 export const LATTE_FLAVORS = ['Chocolate', 'Vanilla', 'Cookie', 'Caramel', 'Cinnamon Sugar', 'Sugar-Free Chocolate', 'Sugar-Free Vanilla'];
 
 // Sale variants. `sourceName` keeps the exact workbook text, including its typos and spacing.
+// The owner reviewed the spelling, spacing and capitalization differences and is fine with them.
 const variant = (id, menuItemId, temperature, sourceName, recipeKey = null, reviewNote = '', price = 3.5, options = []) => ({ id, menuItemId, temperature, sourceName, recipeKey, reviewNote, price, options, active: true });
 
 export const seedProducts = [
   variant('latte-plain-hot', 'cafe-latte-plain', 'hot', 'Cafe Latte - no flavor HOT'),
   variant('latte-plain-iced', 'cafe-latte-plain', 'iced', 'Cafe Latte - no flavor ICED'),
   variant('latte-flavored-hot', 'cafe-latte-flavored', 'hot', 'Cafe Latte - flavored HOT', null, '', 3.5, LATTE_FLAVORS),
-  variant('latte-flavored-iced', 'cafe-latte-flavored', 'iced', 'Cafe Latte - flavored - ICED', null, 'Extra hyphen in source name.', 3.5, LATTE_FLAVORS),
-  variant('rock-chalk-hot', 'rock-chalk', 'hot', 'Rock Chalk Marsh Mocha - HOT', 'rock-chalk-hot', 'Source abbreviates "Jayhawk Marshmallow" as "Marsh".'),
-  variant('rock-chalk-iced', 'rock-chalk', 'iced', 'Rock Chalk Marsh Mocha - ICED', 'rock-chalk-iced', 'Source abbreviates "Jayhawk Marshmallow" as "Marsh".'),
-  variant('panther-paw-hot', 'panther-paw', 'hot', 'Panther paw Caramel Latte - HOT', 'panther-paw-hot', 'Lowercase "paw" in source.'),
+  variant('latte-flavored-iced', 'cafe-latte-flavored', 'iced', 'Cafe Latte - flavored - ICED', null, '', 3.5, LATTE_FLAVORS),
+  variant('rock-chalk-hot', 'rock-chalk', 'hot', 'Rock Chalk Marsh Mocha - HOT', 'rock-chalk-hot'),
+  variant('rock-chalk-iced', 'rock-chalk', 'iced', 'Rock Chalk Marsh Mocha - ICED', 'rock-chalk-iced'),
+  variant('panther-paw-hot', 'panther-paw', 'hot', 'Panther paw Caramel Latte - HOT', 'panther-paw-hot'),
   variant('panther-paw-iced', 'panther-paw', 'iced', 'Panther Paw Caramel Latte - ICED', 'panther-paw-iced'),
   variant('black-panther-hot', 'black-panther', 'hot', 'Black Panther Mocha - HOT', 'black-panther-hot'),
-  variant('black-panther-iced', 'black-panther', 'iced', 'Black Panther Mocha -  ICED', 'black-panther-iced', 'Two spaces before "ICED" in source.'),
+  variant('black-panther-iced', 'black-panther', 'iced', 'Black Panther Mocha -  ICED', 'black-panther-iced'),
   variant('cinnamon-roll-hot', 'cinnamon-roll', 'hot', 'Panther Pride Cinnamon Roll Latte - HOT', 'cinnamon-roll-hot'),
-  variant('cinnamon-roll-iced', 'cinnamon-roll', 'iced', 'Panther Pride Cinnamon Rolle Latte - ICED', 'cinnamon-roll-iced', 'Source spells "Rolle".'),
-  variant('cookie-mocha-hot', 'cookie-mocha', 'hot', 'Pinckney Pride Cookie Mocha - HOT', 'cookie-mocha-hot', 'Source says "Pride"; card and menu say "Panther".'),
-  variant('cookie-mocha-iced', 'cookie-mocha', 'iced', 'Pinckney Pride Cooke. Mocha - ICED', 'cookie-mocha-iced', 'Source says "Pride" and "Cooke."; card and menu say "Panther Cookie".'),
+  variant('cinnamon-roll-iced', 'cinnamon-roll', 'iced', 'Panther Pride Cinnamon Rolle Latte - ICED', 'cinnamon-roll-iced'),
+  variant('cookie-mocha-hot', 'cookie-mocha', 'hot', 'Pinckney Pride Cookie Mocha - HOT', 'cookie-mocha-hot'),
+  variant('cookie-mocha-iced', 'cookie-mocha', 'iced', 'Pinckney Pride Cooke. Mocha - ICED', 'cookie-mocha-iced'),
   variant('espresso-hot', 'espresso', 'hot', 'Menu photo: ESPRESSO'),
   variant('espresso-iced', 'espresso', 'iced', 'Menu photo: ESPRESSO'),
   variant('black-coffee-hot', 'black-coffee', 'hot', 'Black Coffee'),

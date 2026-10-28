@@ -261,3 +261,8 @@ The app pre-selects these inventory items on recipe lines, but every link starts
 - **Estimate status per sale**: Complete, Partial, Recipe needs setup, or Not configured. Sales are never blocked.
 - **Inventory ledger**: opening balance (workbook On Hand) → restock / waste / spill / adjustment events → drink remakes and wasted drinks (recipe usage, kept separate from sales) → reviewed physical counts. Students submit counts; staff see estimated vs counted, choose a reason for each difference, and finalize or discard. Each reconciliation records the estimate, the count, the counter, the reviewer, and the reason.
 - **Data safety**: saved data from the earlier prototype (schema v2) is migrated, keeping sales, events, counts, and the PIN. Unreadable data is backed up instead of overwritten.
+
+## Owner decisions (2026-10-27)
+
+- Spelling, spacing, hyphen and capitalization differences in the workbook names are fine as they are. The app no longer shows review notes for them. The exact workbook text is still kept as each product's source name.
+- Flavored lattes can be any syrup listed on the menu. The flavor is chosen at the register for each sale. Pumps per flavor are still to come from the worksheet.
