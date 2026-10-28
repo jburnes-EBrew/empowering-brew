@@ -2,7 +2,7 @@
 
 iPad sales and inventory tracker for the Empowering Brew student coffee shop.
 
-Built by Jennifer Burnes.
+Created by Jennifer Burnes. Questions or problems? Reach out: jennifer.burnes@usd497.org
 
 **Try it:** https://jburnes-ebrew.github.io/empowering-brew/ (works in any browser; anything you enter stays in your own browser). The first tap on **Staff** asks you to create a PIN for that browser.
 

@@ -6,7 +6,8 @@ const asset = (path) => `${import.meta.env.BASE_URL}${path}`;
 export const Brand = () => <div className="brand"><img className="brand-lockup" src={asset('brand/header-lockup.png')} alt="Empowering Brew" /></div>;
 export const LogoFull = ({ className = '' }) => <img className={className} src={asset('brand/empowering-brew-logo.png')} alt="Empowering Brew" />;
 
-export const Credit = () => <p className="credit">Built by Jennifer Burnes</p>;
+export const CONTACT_EMAIL = 'jennifer.burnes@usd497.org';
+export const Credit = () => <p className="credit">Created by Jennifer Burnes. Questions or problems? Reach out: <a href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('Empowering Brew app')}`}>{CONTACT_EMAIL}</a></p>;
 
 export const todayLabel = () => new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).format(new Date());
 export const timeLabel = (iso) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(iso));

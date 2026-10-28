@@ -202,6 +202,7 @@ function CountScreen({ state, setState, countedBy, onDone }) {
           </div>)}
         </div></section>;
       })}
+      <Credit />
     </section>
     <footer className="count-footer"><span>Your count goes to staff for review.</span><button className="button primary" disabled={!completed} onClick={submit}>Submit count</button></footer>
   </main>;
