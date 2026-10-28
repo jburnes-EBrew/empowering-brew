@@ -6,9 +6,11 @@ export const SEED_VERSION_LABEL = 'Recipe cards v1';
 // grid position so buttons never move when the Hot / Iced selector changes.
 const item = (id, name, order, kind = 'drink', reviewNote = '') => ({ id, name, order, kind, active: true, reviewNote });
 
+export const FLAVOR_NOTE = 'Flavor is any syrup listed on the menu, chosen at the register for each sale. Pumps per flavor are not set yet.';
+
 export const seedMenuItems = [
   item('cafe-latte-plain', 'Cafe Latte\nNo Flavor', 1),
-  item('cafe-latte-flavored', 'Cafe Latte\nFlavored', 2, 'drink', 'Workbook does not say which flavor or how much; flavor is recorded as a sale option only.'),
+  item('cafe-latte-flavored', 'Cafe Latte\nFlavored', 2, 'drink', FLAVOR_NOTE),
   item('rock-chalk', 'Rock Chalk Jayhawk\nMarshmallow Mocha', 3),
   item('panther-paw', 'Panther Paw\nCaramel Latte', 4),
   item('black-panther', 'Black Panther\nMocha', 5),
