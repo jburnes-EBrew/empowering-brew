@@ -1,5 +1,5 @@
 import { FLAVOR_NOTE, SCHEMA_VERSION, SEED_VERSION_LABEL, cloneInitialState } from './data';
-import { applyWorksheetUpdate } from './updates';
+import { applyUpdates } from './updates';
 
 // Spelling notes from the first import; the owner reviewed them and asked for them removed.
 const DISMISSED_NAME_NOTES = new Set(["Extra hyphen in source name.", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Source abbreviates \"Jayhawk Marshmallow\" as \"Marsh\".", "Lowercase \"paw\" in source.", "Two spaces before \"ICED\" in source.", "Source spells \"Rolle\".", "Source says \"Pride\"; card and menu say \"Panther\".", "Source says \"Pride\" and \"Cooke.\"; card and menu say \"Panther Cookie\"."]);
@@ -10,7 +10,7 @@ const KEY = 'empowering-brew-state-v1';
 // Upgrades saved data in place. Sales, inventory events, count sessions and the
 // staff PIN are always carried forward; nothing recorded on the iPad is discarded.
 // Owner data updates (worksheets) are applied afterwards, once per device.
-export const migrate = (saved) => applyWorksheetUpdate(migrateSchema(saved));
+export const migrate = (saved) => applyUpdates(migrateSchema(saved));
 const freshState = () => migrate(cloneInitialState());
 
 function migrateSchema(saved) {

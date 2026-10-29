@@ -3,7 +3,7 @@ import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, H
 import { storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
-import { ESTIMATE_LABELS, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { ESTIMATE_LABELS, MEASURES, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
@@ -367,7 +367,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
   const [eventItem, setEventItem] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
   const [unitsOpen, setUnitsOpen] = useState(false);
-  const unitsReady = state.inventory.filter((item) => item.active && unitsComplete(item, pumpedItemIds(state), shotItemIds(state))).length;
+  const unitsReady = state.inventory.filter((item) => item.active && unitsComplete(item, measuredUnits(state))).length;
   const activeItems = state.inventory.filter((item) => item.active).length;
   const [drinkEvent, setDrinkEvent] = useState(false);
   const [reviewing, setReviewing] = useState(null);
@@ -432,38 +432,45 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
 }
 
 // Items that recipes measure in pumps need a measured pump volume as well.
-const pumpedItemIds = (state) => new Set(state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines).filter((line) => line.unit === 'pump' && line.itemId).map((line) => line.itemId));
-const shotItemIds = (state) => new Set(state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines).filter((line) => line.unit === 'shot' && line.itemId).map((line) => line.itemId));
-const unitsComplete = (item, pumped, shots = new Set()) => !!item.countUnit && !!item.usageUnit && item.usagePerCount > 0 && (!pumped.has(item.id) || item.ozPerPump > 0) && (!shots.has(item.id) || item.usageUnit === 'shot' || item.ozPerShot > 0);
+// Which per-item conversions (pump, shot, Tbs) each item needs, from the current recipes.
+const MEASURE_LABELS = { pump: 'oz per pump', shot: 'oz grounds per shot', Tbs: 'oz per Tbs' };
+function measuredUnits(state) {
+  const units = new Map();
+  for (const entry of state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines)) {
+    if (!entry.itemId || !MEASURES[entry.unit] || entry.excluded) continue;
+    units.set(entry.itemId, new Set([...(units.get(entry.itemId) || []), entry.unit]));
+  }
+  for (const item of state.inventory) if (item.category === 'Syrups & sauces') units.set(item.id, new Set([...(units.get(item.id) || []), 'pump']));
+  return units;
+}
+const unitsComplete = (item, measured) => !!item.countUnit && !!item.usageUnit && item.usagePerCount > 0
+  && [...(measured.get(item.id) || [])].every((unit) => item.usageUnit === unit || item[MEASURES[unit].field] > 0);
 const COUNT_UNITS = ['gallon', 'half gallon', 'quart', 'bottle', 'can', 'jar', 'bag', 'box', 'sleeve', 'pack', 'case', 'roll', 'each'];
 
 // One screen for every item's package size, so setup does not take 39 separate edits.
 function UnitsSetup({ state, onSave, onClose }) {
-  const pumped = useMemo(() => pumpedItemIds(state), [state]);
-  const shots = useMemo(() => shotItemIds(state), [state]);
+  const measured = useMemo(() => measuredUnits(state), [state]);
   const inRecipes = useMemo(() => new Set(state.recipes.filter((recipe) => !recipe.supersededAt).flatMap((recipe) => recipe.lines).map((line) => line.itemId).filter(Boolean)), [state]);
   const items = state.inventory.filter((item) => item.active);
-  const [drafts, setDrafts] = useState(() => Object.fromEntries(items.map((item) => [item.id, { countUnit: item.countUnit, usageUnit: item.usageUnit || 'oz', usagePerCount: item.usagePerCount ?? '', ozPerPump: item.ozPerPump ?? '', ozPerShot: item.ozPerShot ?? '' }])));
+  const [drafts, setDrafts] = useState(() => Object.fromEntries(items.map((item) => [item.id, { countUnit: item.countUnit, usageUnit: item.usageUnit || 'oz', usagePerCount: item.usagePerCount ?? '', ...Object.fromEntries(Object.values(MEASURES).map(({ field }) => [field, item[field] ?? ''])) }])));
   const [onlyRecipes, setOnlyRecipes] = useState(false);
   const set = (id, patch) => setDrafts((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
-  const save = () => onSave(Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { countUnit: draft.countUnit.trim(), usageUnit: draft.countUnit.trim() ? draft.usageUnit : '', usagePerCount: numberOrNull(String(draft.usagePerCount)), ozPerPump: numberOrNull(String(draft.ozPerPump)), ozPerShot: numberOrNull(String(draft.ozPerShot)) }])));
+  const save = () => onSave(Object.fromEntries(Object.entries(drafts).map(([id, draft]) => [id, { countUnit: draft.countUnit.trim(), usageUnit: draft.countUnit.trim() ? draft.usageUnit : '', usagePerCount: numberOrNull(String(draft.usagePerCount)), ...Object.fromEntries(Object.values(MEASURES).map(({ field }) => [field, numberOrNull(String(draft[field]))])) }])));
   const shown = items.filter((item) => !onlyRecipes || inRecipes.has(item.id));
-  const done = items.filter((item) => unitsComplete({ ...item, ...drafts[item.id], usagePerCount: Number(drafts[item.id].usagePerCount), ozPerPump: Number(drafts[item.id].ozPerPump), ozPerShot: Number(drafts[item.id].ozPerShot) }, pumped, shots)).length;
+  const done = items.filter((item) => unitsComplete({ ...item, ...drafts[item.id], usagePerCount: Number(drafts[item.id].usagePerCount), ...Object.fromEntries(Object.values(MEASURES).map(({ field }) => [field, Number(drafts[item.id][field])])) }, measured)).length;
   return <Modal title="Units & sizes" onClose={onClose} wide>
     <p className="field-help">For each item, enter what you count it in and how much one holds, the way recipes measure it. Examples: Whole Milk, 1 gallon = 128 oz · Whip, 1 can = 10 oz · a 750 mL syrup bottle = 25.4 oz · Hot cups, 1 sleeve = 50 each · Coffee, 1 bag = 18 oz, and oz of ground coffee per espresso shot (18 g = 0.63 oz). Leave anything you don't know yet blank.</p>
     <div className="units-toolbar"><strong>{done} of {items.length} complete</strong><label className="check-label"><input type="checkbox" checked={onlyRecipes} onChange={(event) => setOnlyRecipes(event.target.checked)} /> Only items used in recipes</label></div>
     <datalist id="count-units">{COUNT_UNITS.map((unit) => <option key={unit} value={unit} />)}</datalist>
     <div className="units-table">
-      <div className="units-row units-head"><span>Item</span><span>Counted in</span><span>One holds</span><span>Oz per pump / shot</span></div>
+      <div className="units-row units-head"><span>Item</span><span>Counted in</span><span>One holds</span><span>Conversions</span></div>
       {shown.map((item) => {
         const draft = drafts[item.id];
         return <div className="units-row" key={item.id}>
           <span><strong>{item.name}</strong><small>{item.category}{inRecipes.has(item.id) ? ' · used in recipes' : ''}</small></span>
           <span><input list="count-units" value={draft.countUnit} onChange={(event) => set(item.id, { countUnit: event.target.value })} placeholder="choose or type" aria-label={`${item.name} counted in`} /></span>
           <span className="holds"><input type="number" step="any" min="0" value={draft.usagePerCount} onChange={(event) => set(item.id, { usagePerCount: event.target.value })} aria-label={`Amount in one ${draft.countUnit || 'unit'} of ${item.name}`} /><select value={draft.usageUnit} onChange={(event) => set(item.id, { usageUnit: event.target.value })} aria-label={`${item.name} size unit`}>{UNITS.filter(Boolean).filter((unit) => unit !== 'pump').map((unit) => <option key={unit} value={unit}>{unit}</option>)}</select></span>
-          <span>{pumped.has(item.id) || item.category === 'Syrups & sauces'
-            ? <input type="number" step="any" min="0" value={draft.ozPerPump} onChange={(event) => set(item.id, { ozPerPump: event.target.value })} placeholder="measure" aria-label={`${item.name} ounces per pump`} />
-            : shots.has(item.id) ? <input type="number" step="any" min="0" value={draft.ozPerShot} onChange={(event) => set(item.id, { ozPerShot: event.target.value })} placeholder="grounds/shot" aria-label={`${item.name} ounces of ground coffee per espresso shot`} /> : <small>—</small>}</span>
+          <span className="conversions">{measured.has(item.id) ? [...measured.get(item.id)].map((unit) => <label key={unit}><input type="number" step="any" min="0" value={draft[MEASURES[unit].field]} onChange={(event) => set(item.id, { [MEASURES[unit].field]: event.target.value })} aria-label={`${item.name} ${MEASURE_LABELS[unit]}`} /><small>{MEASURE_LABELS[unit]}</small></label>) : <small>—</small>}</span>
         </div>;
       })}
     </div>
@@ -484,6 +491,7 @@ function ItemEditor({ item, isNew, onSave, onClose }) {
         <label>Recipes measure it in<select value={draft.usageUnit} onChange={(event) => set({ usageUnit: event.target.value })}>{UNITS.map((unit) => <option key={unit} value={unit}>{unit || 'Not set'}</option>)}</select></label>
         <label>{draft.usageUnit || 'Units'} in one {draft.countUnit || 'counted unit'}<input type="number" step="any" min="0" value={draft.usagePerCount ?? ''} onChange={(event) => set({ usagePerCount: numberOrNull(event.target.value) })} placeholder="e.g. 25.4 oz per bottle" /></label>
         <label>Ounces of ground coffee per espresso shot<input type="number" step="any" min="0" value={draft.ozPerShot ?? ''} onChange={(event) => set({ ozPerShot: numberOrNull(event.target.value) })} placeholder="Coffee only; e.g. 0.63 for 18 g" /></label>
+        <label>Ounces per tablespoon<input type="number" step="any" min="0" value={draft.ozPerTbs ?? ''} onChange={(event) => set({ ozPerTbs: numberOrNull(event.target.value) })} placeholder="Toppings measured in Tbs; e.g. 0.09 for whipped cream" /></label>
         <label>Measured ounces per pump<input type="number" step="any" min="0" value={draft.ozPerPump ?? ''} onChange={(event) => set({ ozPerPump: numberOrNull(event.target.value) })} placeholder="Dispensers only; measure first" /></label>
         {isNew && <label>Opening amount on hand<input type="number" step="any" min="0" value={draft.onHand} onChange={(event) => set({ onHand: event.target.value })} /></label>}
       </div>

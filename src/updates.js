@@ -196,3 +196,95 @@ export function applyWorksheetUpdate(state, now = new Date().toISOString()) {
   };
 }
 
+
+// Owner answers to the worksheet follow-up questions (Oct 29, 2026). Industry-standard
+// estimates are used where the owner asked for them; each says so in its note.
+export const ANSWERS_UPDATE = 'answers-2026-10-29';
+const ANSWERS_LABEL = 'Owner answers (Oct 2026)';
+const LIDS_NOTE = 'Lids come with the cups, so they are counted with the cups.';
+const STANDARD = 'Industry-standard estimate; replace it with a measured number when you have one.';
+
+// Espresso machine (KitchenAid KES8558): one shot is 2 oz of brewed espresso. The
+// machine's dose is not published; 14 g of grounds for 2 oz is the usual double-shot dose.
+const OZ_GROUNDS_PER_SHOT = 0.49; // 14 g
+// Machine-brewed black coffee is 6.9 oz; about 12 g of grounds (a 1:17 brew ratio).
+const OZ_GROUNDS_PER_COFFEE = 0.42;
+// Ounces (by weight) per level tablespoon, from typical package labels:
+// aerosol whipped cream 2 Tbs = 5 g; chocolate and caramel sauce 2 Tbs = 39 g;
+// shortbread cookie crumbs 1 Tbs = 6 g.
+const OZ_PER_TBS = { whip: 0.088, 'caramel-drizzle': 0.69, 'dark-ch-drizzle': 0.69, lornadoones: 0.22 };
+
+const groundsLine = () => ({ ...confirmed(line('coffee', 'espresso', 'Ground coffee (machine-brewed 6.9 oz)', fixed(OZ_GROUNDS_PER_COFFEE), 'oz', 'coffee-reg')), note: `About 12 g of grounds per 6.9 oz cup. ${STANDARD}` });
+
+function answerLine(entry, recipe) {
+  if (entry.id === 'lid') return { ...entry, amount: fixed(1), unit: 'each', itemId: null, itemConfirmed: false, excluded: true, note: LIDS_NOTE };
+  if (entry.id === 'straw') return { ...entry, amount: fixed(0), excluded: true, note: 'No straws are used.' };
+  if (entry.role === 'milk' && entry.amount && entry.amount.min !== entry.amount.max) return { ...entry, amount: fixed(entry.calcAmount ?? entry.amount.min), calcAmount: null };
+  if (entry.label === 'Mini marshmallows') return { ...entry, amount: fixed(2), unit: 'oz' };
+  if (entry.itemId === 'dark-ch-drizzle' || entry.itemId === 'lornadoones' || entry.itemId === 'brown-sugar') return { ...entry, itemConfirmed: true, note: '' };
+  if (entry.label === 'Dark chocolate sauce') return { ...entry, itemId: 'chocolate-syrup', itemConfirmed: true, note: 'Same chocolate sauce as the other drinks.' };
+  if (recipe.recipeKey === 'espresso-hot' && entry.id === 'cup') return { ...entry, itemConfirmed: true, note: '' };
+  if (recipe.recipeKey === 'black-coffee-hot' && entry.id === 'coffee') return groundsLine();
+  return entry;
+}
+
+const CARD_MILK = [[/8-10 oz steamed milk/, '6.9 oz steamed milk'], [/6-8 oz cold milk/, '6.9 oz cold milk']];
+
+function answerRecipes(now) {
+  const base = { version: 1, effectiveFrom: now, changeNote: 'Added from the owner\'s answers. Ice amount matches the iced latte.' };
+  const ice = () => ({ ...confirmed(line('ice', 'ice', 'Ice', fixed(4), 'oz', 'ice')), note: 'Same as the iced latte.' });
+  const coldCup = () => confirmed(line('cup', 'cup', 'Cold cup', fixed(1), 'each', 'cold-cups'));
+  const lid = () => ({ ...line('lid', 'consumable', 'Lid', fixed(1), 'each'), excluded: true, note: LIDS_NOTE });
+  return [
+    recipeVersion(base, { versionId: 'espresso-iced-answers-v1', recipeKey: 'espresso-iced', name: 'Espresso', temperature: 'iced', cupType: 'Cold cup', espressoShots: 1, versionLabel: ANSWERS_LABEL, lines: [coldCup(), lid(), shot(1), ice()] }),
+    recipeVersion(base, { versionId: 'black-coffee-iced-answers-v1', recipeKey: 'black-coffee-iced', name: 'Black Coffee', temperature: 'iced', cupType: 'Cold cup', versionLabel: ANSWERS_LABEL, lines: [coldCup(), lid(), groundsLine(), ice()] }),
+  ].map((recipe) => ({ ...recipe, versionLabel: ANSWERS_LABEL }));
+}
+
+function answerItem(item) {
+  const next = { ...item };
+  const addNote = (text) => { if (!next.note) next.note = text; };
+  if ((item.id === 'coffee-reg' || item.id === 'coffee-decaf') && next.ozPerShot == null) {
+    next.ozPerShot = OZ_GROUNDS_PER_SHOT;
+    addNote(`0.49 oz (14 g) of grounds per 2 oz shot. ${STANDARD}`);
+  }
+  if (OZ_PER_TBS[item.id] && next.ozPerTbs == null) {
+    next.ozPerTbs = OZ_PER_TBS[item.id];
+    addNote(`${OZ_PER_TBS[item.id]} oz per tablespoon. ${STANDARD}`);
+  }
+  // Sweet treat sleeves are counted one by one (100 on hand); they come 50 to a bundle, 6 bundles (300) to a box.
+  if (item.id === 'sweet-treat-sleeves' && item.countUnit === 'bundle' && item.usagePerCount === 50) {
+    Object.assign(next, { countUnit: 'sleeve', usageUnit: 'each', usagePerCount: 1 });
+    addNote('50 sleeves per bundle, 6 bundles (300 sleeves) per box.');
+  }
+  return next;
+}
+
+export function applyAnswersUpdate(state, now = new Date().toISOString()) {
+  if (state.settings?.appliedUpdates?.includes(ANSWERS_UPDATE)) return state;
+  const supersede = new Set();
+  const added = [];
+  for (const recipe of state.recipes) {
+    // Only recipes still at a version this app supplied; staff edits are left alone.
+    if (recipe.supersededAt || recipe.versionLabel !== WORKSHEET_LABEL) continue;
+    const lines = recipe.lines.map((entry) => answerLine(entry, recipe));
+    const instructions = CARD_MILK.reduce((text, [pattern, replacement]) => text.replace(pattern, replacement), recipe.instructions || '');
+    if (JSON.stringify(lines) === JSON.stringify(recipe.lines) && instructions === recipe.instructions) continue;
+    supersede.add(recipe.versionId);
+    added.push({ ...recipe, versionId: `${recipe.recipeKey}-answers-v${recipe.version + 1}`, version: recipe.version + 1, versionLabel: ANSWERS_LABEL, effectiveFrom: now, supersededAt: null, lines, instructions,
+      changeNote: 'Owner answers: lids come with cups, no straws, confirmed inventory items, single milk amounts, industry-standard coffee and topping estimates.' });
+  }
+  const existingKeys = new Set(state.recipes.map((recipe) => recipe.recipeKey));
+  const fresh = answerRecipes(now).filter((recipe) => !existingKeys.has(recipe.recipeKey));
+  added.push(...fresh);
+  const linkable = new Set(fresh.map((recipe) => recipe.recipeKey));
+  return {
+    ...state,
+    products: state.products.map((product) => !product.recipeKey && linkable.has(product.id) ? { ...product, recipeKey: product.id } : product),
+    recipes: [...state.recipes.map((recipe) => supersede.has(recipe.versionId) ? { ...recipe, supersededAt: now } : recipe), ...added],
+    inventory: state.inventory.map(answerItem),
+    settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), ANSWERS_UPDATE] },
+  };
+}
+
+export const applyUpdates = (state, now) => applyAnswersUpdate(applyWorksheetUpdate(state, now), now);

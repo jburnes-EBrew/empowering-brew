@@ -277,3 +277,19 @@ Both worksheets in `Inputs/` were built in as a one-time update (`src/updates.js
 - Black Coffee is now also offered iced, with no recipe yet. Hot Tea is hot only.
 - Units and sizes were filled in from the worksheet. Interpretations: 20 lb ice bag = 320 oz. 2 Cup Holders are counted "each" (the sheet said oz). Espresso is counted in shots (the sheet said 2 oz = 2 shots). Hot cinnamon sugar is 0.1 oz (the unit cell said 0.1).
 - Still flagged in the app: lids, straws and tea bags (no inventory items yet); ground coffee per espresso shot; brewed coffee vs. grounds; chocolate drizzle and cookie crumb items; Black Panther dark chocolate sauce item; Cinnamon Sugar syrup; Tbs-to-container conversions for whip, drizzles and toppings.
+
+## Owner answers applied (2026-10-29)
+
+These were added as a second one-time update ("Owner answers (Oct 2026)" recipe versions).
+
+- Every cup comes with a lid, so lids are counted with the cups. No straws are used.
+- Chocolate drizzle is Dark Ch Drizzle. Cookie crumbs are Lornadoones. Black Panther's dark chocolate sauce is the one Chocolate syrup. The Cinnamon Sugar latte uses Brn Sugar Cinnamon Syrup.
+- Mini marshmallows are 2 oz. Milk is a single 6.9 oz amount; the outdated card ranges were dropped.
+- Machine: KitchenAid KES8558. One shot is 2 oz of brewed espresso. Black coffee is 6.9 oz brewed by the machine.
+- Industry-standard estimates, which the owner asked for until measured numbers exist:
+  - Coffee: 14 g (0.49 oz) of grounds per 2 oz shot. Black coffee: 12 g (0.42 oz) per 6.9 oz cup.
+  - Ounces per tablespoon from typical package labels: whip 0.088, chocolate and caramel drizzle 0.69, cookie crumbs 0.22.
+- New recipes: iced Espresso and iced Black Coffee (ice 4 oz, the same as the iced latte).
+- Decaf is a one-sale toggle on the sales screen. That drink's coffee comes out of Coffee Decaf, and the sales CSV has a Decaf column.
+- Sweet Treat Sleeves are counted one by one. They come 50 per bundle and 6 bundles (300 sleeves) per box.
+- Remaining gap: Hot Tea has no tea bag item on the inventory list.

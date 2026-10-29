@@ -86,6 +86,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .backup-time input { min-height: 44px; border: 2px solid var(--line); border-radius: 10px; padding: 0 8px; font-size: 1rem; }
 .backup-time small { color: var(--muted); font-weight: 600; }
 .undo-button { min-width: 126px; min-height: 48px; border: 0; border-radius: 11px; display: flex; align-items: center; justify-content: center; gap: 8px; background: white; color: var(--espresso); font-weight: 800; cursor: pointer; }
+.decaf-button { min-height: 48px; border: 2px solid #cfc8c1; border-radius: 11px; padding: 0 16px; background: transparent; color: #6f665e; font-weight: 750; cursor: pointer; }
+.decaf-button.on { border-color: #6b3f1f; background: #6b3f1f; color: white; }
 .undo-button:disabled { color: #9b9691; background: #dfddda; cursor: default; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 30; background: rgba(37, 20, 12, .56); display: grid; place-items: center; padding: 22px; }
@@ -250,6 +252,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .units-row { display: grid; grid-template-columns: 1.4fr 1fr 1.2fr .8fr; gap: 10px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--line); }
 .units-row small { display: block; color: var(--muted); font-size: .76rem; }
 .units-row input, .units-row select { width: 100%; min-height: 44px; border: 2px solid var(--line); border-radius: 9px; padding: 0 8px; background: white; font-size: 1rem; color: var(--espresso); }
+.units-row .conversions { display: grid; gap: 6px; }
 .units-row .holds { display: grid; grid-template-columns: 1fr 76px; gap: 6px; }
 .units-head { font-size: .72rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .credit { margin: 28px 0 0; text-align: center; color: var(--muted); font-size: .8rem; letter-spacing: .02em; }

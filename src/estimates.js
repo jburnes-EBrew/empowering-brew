@@ -18,6 +18,13 @@ export function lineQuantity(line) {
 // details but only the lines used by every sale are counted as usage.
 export const lineApplies = (entry, option) => !entry.forOptions?.length || entry.forOptions.includes(option);
 
+// Recipe units converted to ounces with a per-item setting before counting against inventory.
+export const MEASURES = {
+  pump: { field: 'ozPerPump', missing: 'pump volume not measured' },
+  shot: { field: 'ozPerShot', missing: 'ground coffee per shot not set' },
+  Tbs: { field: 'ozPerTbs', missing: 'ounces per tablespoon not set' },
+};
+
 export function estimateUsage(recipe, inventory, option) {
   if (!recipe) return { status: 'not-configured', usage: [], gaps: ['No recipe linked to this product'] };
   const usage = [];
@@ -36,14 +43,10 @@ export function estimateUsage(recipe, inventory, option) {
     if (!item) { gaps.push(`${entry.label}: inventory item not confirmed`); continue; }
     let amount = quantity;
     let unit = entry.unit;
-    if (unit === 'pump') {
-      const ounces = entry.ozPerPump ?? item.ozPerPump;
-      if (!ounces) { gaps.push(`${entry.label}: pump volume not measured for ${item.name}`); continue; }
-      amount = quantity * ounces;
-      unit = 'oz';
-    } else if (unit === 'shot' && item.usageUnit !== 'shot') {
-      const ounces = item.ozPerShot;
-      if (!ounces) { gaps.push(`${entry.label}: ground coffee per shot not set for ${item.name}`); continue; }
+    const measure = MEASURES[unit];
+    if (measure && item.usageUnit !== unit) {
+      const ounces = (unit === 'pump' ? entry.ozPerPump : null) ?? item[measure.field];
+      if (!ounces) { gaps.push(`${entry.label}: ${measure.missing} for ${item.name}`); continue; }
       amount = quantity * ounces;
       unit = 'oz';
     }

@@ -49,7 +49,7 @@ describe('backup files', () => {
     state.sales[0].voidedAt = '2026-10-27T10:00:05.000Z';
     const rows = salesCsvRows(state.sales);
     expect(rows).toHaveLength(2);
-    expect(rows[1].slice(2, 7)).toEqual(['Black Panther Mocha', 'Iced', '', '3.50', 'Undone']);
+    expect(rows[1].slice(2, 8)).toEqual(['Black Panther Mocha', 'Iced', '', '', '3.50', 'Undone']);
     expect(toCsv([['a "quote"', 1]])).toBe('"a ""quote""","1"');
   });
 
@@ -58,7 +58,7 @@ describe('backup files', () => {
     const { state: restored, exportedAt } = parseFullBackup(fullBackupText(state));
     expect(exportedAt).toBeTruthy();
     expect(restored.sales).toEqual(state.sales);
-    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(17);
+    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(19);
   });
 
   it('rejects files that are not full backups', () => {

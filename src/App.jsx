@@ -4,7 +4,7 @@ import { saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES } from './data';
-import { Brand, Credit, LogoFull, Modal, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
+import { Brand, Credit, LogoFull, Modal, menuItemFor, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
 
 function App({ initialState }) {
@@ -71,11 +71,20 @@ export function salesSlots(state, temperature) {
   }).filter(Boolean);
 }
 
+// Decaf is rare, so it is a one-sale toggle rather than a question on every drink:
+// the coffee a decaf drink uses comes out of Coffee Decaf instead of Coffee Reg.
+function decafEstimate(estimate, inventory) {
+  const decafItem = inventory.find((item) => item.id === 'coffee-decaf');
+  if (!decafItem) return estimate;
+  return { ...estimate, usage: estimate.usage.map((use) => use.itemId === 'coffee-reg' ? { ...use, itemId: decafItem.id, itemName: decafItem.name } : use) };
+}
+
 function SalesScreen({ state, setState, onStaff, onCount }) {
   const [temperature, setTemperature] = useState('hot');
   const [message, setMessage] = useState('Ready to record a sale');
   const [optionProduct, setOptionProduct] = useState(null);
   const [lastSaleId, setLastSaleId] = useState(null);
+  const [decaf, setDecaf] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
   const due = backupDue(state, now);
@@ -86,15 +95,18 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
 
   const recordSale = (product, option = null) => {
     const recipe = currentRecipe(state.recipes, product.recipeKey);
-    const estimate = estimateUsage(recipe, state.inventory, option);
+    const isDrink = menuItemFor(state, product)?.kind !== 'food';
+    const madeDecaf = decaf && isDrink;
+    const estimate = madeDecaf ? decafEstimate(estimateUsage(recipe, state.inventory, option), state.inventory) : estimateUsage(recipe, state.inventory, option);
     const sale = {
       id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
-      temperature: product.temperature, option, price: product.price, soldAt: new Date().toISOString(),
+      temperature: product.temperature, option, ...(madeDecaf ? { decaf: true } : {}), price: product.price, soldAt: new Date().toISOString(),
       recipeVersionId: recipe?.versionId || null, estimateStatus: estimate.status, usage: estimate.usage, gaps: estimate.gaps,
     };
     setState((current) => ({ ...current, sales: [...current.sales, sale] }));
     setLastSaleId(sale.id);
-    setMessage(`${productLabel(state, product)}${option ? ` · ${option}` : ''} recorded`);
+    if (madeDecaf) setDecaf(false);
+    setMessage(`${productLabel(state, product)}${option ? ` · ${option}` : ''}${madeDecaf ? ' · Decaf' : ''} recorded`);
   };
 
   const selectProduct = (product) => product.options?.length ? setOptionProduct(product) : recordSale(product);
@@ -137,8 +149,9 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
       </div>
     </section>
     <footer className={`confirmation-rail ${lastSaleId ? 'has-sale' : ''}`} aria-live="polite">
-      <div className="confirmation-message"><span className="confirm-icon"><CheckIcon size={28} /></span><strong>{message}</strong></div>
+      <div className="confirmation-message"><span className="confirm-icon"><CheckIcon size={28} /></span><strong>{decaf ? 'Next drink will be recorded as decaf' : message}</strong></div>
       <div className="rail-actions">
+        <button className={`decaf-button ${decaf ? 'on' : ''}`} aria-pressed={decaf} onClick={() => setDecaf(!decaf)}>{decaf ? 'Decaf ✓' : 'Decaf'}</button>
         {due && <button className="backup-button" onClick={saveBackup}><DownloadIcon size={23} /> Save backup</button>}
         <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
       </div>
