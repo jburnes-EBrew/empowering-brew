@@ -311,4 +311,4 @@ These were added as a second one-time update ("Owner answers (Oct 2026)" recipe 
 ## Busy times (2026-11-02)
 
 - Each sale has always saved the exact time it was rung up (`soldAt`, in the sales CSV's Date and Time columns).
-- Staff → Reports → Busy times shows sales by weekday and half hour (or hour) for the selected week or for all weeks, with the busiest slot called out, to help plan staffing and prep. Undone sales are not counted. Times are this iPad's local time.
+- Staff → Reports → Busy times shows sales by weekday and half hour (or hour) for this week, last week (calendar weeks, Monday to Sunday) or all weeks, with the busiest slot called out, to help plan staffing and prep. Undone sales are not counted. Times are this iPad's local time.

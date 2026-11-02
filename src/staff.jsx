@@ -616,7 +616,7 @@ function ReportsTab({ state, setState }) {
       <tbody>{report.rows.map((row) => <tr key={row.product.id}><td><span className={`temp-dot ${row.product.temperature}`} />{productLabel(state, row.product)}</td>{row.days.map((count, index) => showDays[index] && <td key={index}>{count || ''}</td>)}<td><strong>{row.total}</strong></td></tr>)}</tbody>
       <tfoot><tr><td>Total</td>{totals.map((count, index) => showDays[index] && <td key={index}>{count}</td>)}<td>{report.sales.length}</td></tr></tfoot>
     </table></div>
-    <BusyTimes state={state} weekSales={report.sales} showDays={showDays} />
+    <BusyTimes state={state} />
     <h3 className="subheading">Estimated ingredient usage this week</h3>
     {report.usage.length ? <div className="data-list">{report.usage.map((use) => <div className="data-row simple-row" key={`${use.itemName}-${use.unit}`}><span><strong>{use.itemName}</strong></span><span>{formatNumber(use.quantity)} {use.unit}</span></div>)}</div>
       : <p className="subheading-help">No usage estimated yet. Usage appears once recipes have confirmed inventory items, standard amounts, and measured pump volumes.</p>}
@@ -624,28 +624,37 @@ function ReportsTab({ state, setState }) {
 }
 
 // When drinks are ordered, for staffing and prep. Every sale already records its time.
-function BusyTimes({ state, weekSales, showDays }) {
-  const [scope, setScope] = useState('week');
+// This week and last week are calendar weeks (Monday to Sunday), whatever week the table above shows.
+const BUSY_SCOPES = [['this', 'This week', 0], ['last', 'Last week', -1], ['all', 'All weeks', null]];
+
+function BusyTimes({ state }) {
+  const [scope, setScope] = useState('this');
   const [slotMinutes, setSlotMinutes] = useState(30);
-  const sales = scope === 'week' ? weekSales : state.sales;
+  const [, , offset] = BUSY_SCOPES.find(([key]) => key === scope);
+  const start = useMemo(() => { if (offset == null) return null; const date = weekStart(new Date()); date.setDate(date.getDate() + offset * 7); return date; }, [offset]);
+  const sales = useMemo(() => {
+    if (!start) return state.sales;
+    const end = new Date(start); end.setDate(end.getDate() + 7);
+    return state.sales.filter((sale) => new Date(sale.soldAt) >= start && new Date(sale.soldAt) < end);
+  }, [state.sales, start]);
   const busy = useMemo(() => busyTimes(sales, slotMinutes), [sales, slotMinutes]);
-  const days = WEEKDAYS.map((_, index) => scope === 'week' ? showDays[index] : index < 5 || busy.slots.some((slot) => slot.days[index] > 0));
+  const days = WEEKDAYS.map((_, index) => index < 5 || busy.slots.some((slot) => slot.days[index] > 0));
   const shade = (count) => count ? { background: `rgba(4, 107, 177, ${0.12 + 0.78 * count / busy.max})`, color: count / busy.max > 0.5 ? 'white' : undefined } : undefined;
   const chip = (on, label, onClick) => <button type="button" className={`chip ${on ? 'selected' : ''}`} aria-pressed={on} onClick={onClick}>{label}</button>;
   return <>
     <h3 className="subheading">Busy times</h3>
     <p className="subheading-help">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}, by the time they were rung up. Darker squares are busier; use them to plan who works when and when to prep.</p>
     <div className="filter-chips">
-      {chip(scope === 'week', 'This week', () => setScope('week'))}{chip(scope === 'all', 'All weeks', () => setScope('all'))}<span className="chip-gap" aria-hidden="true" />
+      {BUSY_SCOPES.map(([key, label]) => <React.Fragment key={key}>{chip(scope === key, label, () => setScope(key))}</React.Fragment>)}<span className="chip-gap" aria-hidden="true" />
       {chip(slotMinutes === 30, 'Half hours', () => setSlotMinutes(30))}{chip(slotMinutes === 60, 'Hours', () => setSlotMinutes(60))}
     </div>
     {busy.slots.length ? <>
-      <p className="busy-summary">Busiest: <strong>{WEEKDAYS[busy.busiest.day]}s, {clockLabel(busy.busiest.startMinutes)}–{clockLabel(busy.busiest.startMinutes + slotMinutes)}</strong> · {busy.busiest.count} sold{scope === 'all' ? ' across all weeks' : ''}</p>
+      <p className="busy-summary">{start && <>Week of {dayLabel(start)} · </>}Busiest: <strong>{WEEKDAYS[busy.busiest.day]}{start ? '' : 's'}, {clockLabel(busy.busiest.startMinutes)}–{clockLabel(busy.busiest.startMinutes + slotMinutes)}</strong> · {busy.busiest.count} sold{start ? '' : ' across all weeks'}</p>
       <div className="table-scroll"><table className="report-table busy-table">
         <thead><tr><th>Time</th>{WEEKDAYS.map((day, index) => days[index] && <th key={day}>{day.slice(0, 3)}</th>)}<th>Total</th></tr></thead>
         <tbody>{busy.slots.map((slot) => <tr key={slot.startMinutes}><td>{clockLabel(slot.startMinutes)}</td>{slot.days.map((count, index) => days[index] && <td key={index} style={shade(count)}>{count || ''}</td>)}<td><strong>{slot.total || ''}</strong></td></tr>)}</tbody>
       </table></div>
-    </> : <p className="subheading-help">No sales {scope === 'week' ? 'this week' : 'recorded'} yet.</p>}
+    </> : <p className="subheading-help">{{ this: 'No sales this week yet.', last: `No sales last week (week of ${start && dayLabel(start)}).`, all: 'No sales recorded yet.' }[scope]}</p>}
   </>;
 }
 
