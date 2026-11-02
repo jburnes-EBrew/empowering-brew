@@ -64,7 +64,7 @@ describe('backup files', () => {
     const { state: restored, exportedAt } = parseFullBackup(fullBackupText(state));
     expect(exportedAt).toBeTruthy();
     expect(restored.sales).toEqual(state.sales);
-    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(19);
+    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(21);
   });
 
   it('rejects files that are not full backups', () => {

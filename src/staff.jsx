@@ -2,9 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
 import { storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
-import { INVENTORY_CATEGORIES, MONTHLY_SPECIAL, optionLabel } from './data';
+import { INVENTORY_CATEGORIES, SPECIAL_MENU_ID, optionLabel } from './data';
 import { ESTIMATE_LABELS, MEASURES, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
-import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
+import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
 
@@ -68,7 +68,7 @@ function ProductsTab({ state, setState }) {
       {items.map((menuItem) => {
         const variants = state.products.filter((product) => product.menuItemId === menuItem.id);
         return <div className={`data-row ${menuItem.active ? '' : 'row-inactive'}`} key={menuItem.id}>
-          <span><strong>{oneLine(menuItem.name)}</strong>{menuItem.reviewNote && <small className="warning-text">{menuItem.reviewNote}</small>}</span>
+          <span><strong>{menuItem.id === SPECIAL_MENU_ID ? productName(state, { menuItemId: SPECIAL_MENU_ID }) : oneLine(menuItem.name)}</strong>{menuItem.reviewNote && <small className="warning-text">{menuItem.reviewNote}</small>}</span>
           <span className="variant-list">{variants.map((product) => {
             const recipe = currentRecipe(state.recipes, product.recipeKey);
             const status = estimateUsage(recipe, state.inventory).status;
@@ -92,8 +92,8 @@ function ProductsTab({ state, setState }) {
 // The flavor name changes each month; the recipe and inventory item stay the same,
 // and past sales keep the name they were sold under.
 function MonthlySpecial({ state, setState }) {
-  const offered = state.products.some((product) => product.active && product.options?.includes(MONTHLY_SPECIAL));
-  return <label className="special-setting"><span><strong>Monthly special flavor</strong><small>{offered ? 'Shown as a flavor choice on flavored lattes. Change it at the start of each month; past sales keep the flavor they were sold as. It uses the Monthly Special Syrup inventory item.' : `Add "${MONTHLY_SPECIAL}" to a product's flavor choices to offer it.`}</small></span>
+  const offered = state.menuItems.some((entry) => entry.id === SPECIAL_MENU_ID && entry.active);
+  return <label className="special-setting"><span><strong>Monthly special flavor</strong><small>{offered ? 'Names the Monthly Special button on the sales screen. Change it at the start of each month; past sales keep the flavor they were sold as. It uses the Monthly Special Syrup inventory item.' : 'The Monthly Special button is turned off. Reactivate it in the list below to offer the special.'}</small></span>
     <input value={state.settings?.monthlySpecial || ''} placeholder="e.g. Pumpkin Spice" onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, monthlySpecial: event.target.value } }))} aria-label="Monthly special flavor" />
   </label>;
 }

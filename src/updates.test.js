@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
 import { currentRecipe, estimateUsage, inventoryBalances } from './estimates';
 import { migrate } from './storage';
-import { ANSWERS_UPDATE, MONTHLY_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
+import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
 
 const fresh = () => migrate(cloneInitialState('2026-10-01T00:00:00.000Z'));
 const product = (state, id) => state.products.find((entry) => entry.id === id);
@@ -80,21 +80,45 @@ describe('worksheet and owner-answer updates', () => {
 });
 
 describe('monthly special', () => {
-  it('offers the monthly special on flavored lattes, using its own syrup', () => {
+  it('has its own hot and iced button using the special syrup', () => {
     const state = fresh();
     expect(state.settings.monthlySpecial).toBe('Pumpkin Spice');
-    expect(product(state, 'latte-flavored-iced').options.at(-1)).toBe('Monthly Special');
-    const estimate = estimateUsage(recipeFor(state, 'latte-flavored-iced'), state.inventory, 'Monthly Special');
-    expect(estimate.status).toBe('complete');
-    expect(used(estimate)['Monthly Special Syrup']).toBe('0.75 oz');
-    expect(used(estimate)['Vanilla Syrup']).toBeUndefined();
+    expect(state.menuItems.find((entry) => entry.id === 'monthly-special')).toMatchObject({ active: true, kind: 'drink' });
+    expect(product(state, 'latte-flavored-iced').options).not.toContain('Monthly Special');
+    for (const temperature of ['hot', 'iced']) {
+      const estimate = estimateUsage(recipeFor(state, `monthly-special-${temperature}`), state.inventory, null);
+      expect(estimate.status).toBe('complete');
+      expect(used(estimate)).toMatchObject({ 'Monthly Special Syrup': '0.75 oz', 'Whole Milk': '6.9 oz', 'Coffee Reg': '0.49 oz', Whip: '0.352 oz' });
+      expect(used(estimate)['Vanilla Syrup']).toBeUndefined();
+      expect(used(estimate)['Caramel Drizzle']).toBeUndefined();
+    }
+    expect(used(estimateUsage(recipeFor(state, 'monthly-special-iced'), state.inventory, null)).Ice).toBe('4 oz');
     expect(inventoryBalances(state)['monthly-special-syrup'].estimate).toBe(0);
+  });
+
+  it('moves the special out of the latte on devices that had it as a latte choice', () => {
+    const state = fresh();
+    const latte = currentRecipe(state.recipes, 'latte-flavored-hot');
+    const special = { ...latte, versionId: 'latte-flavored-hot-special-v4', version: latte.version + 1, versionLabel: 'Monthly special (Nov 2026)',
+      lines: [...latte.lines, { id: 'flavor-special', role: 'syrup', label: 'Monthly Special Syrup', forOptions: ['Monthly Special'] }] };
+    const before = {
+      ...state,
+      menuItems: state.menuItems.filter((entry) => entry.id !== 'monthly-special'),
+      products: state.products.filter((entry) => entry.menuItemId !== 'monthly-special').map((entry) => entry.id === 'latte-flavored-hot' ? { ...entry, options: [...entry.options, 'Monthly Special'] } : entry),
+      recipes: [...state.recipes.filter((recipe) => !recipe.recipeKey.startsWith('monthly-special')).map((recipe) => recipe.versionId === latte.versionId ? { ...recipe, supersededAt: '2026-11-02T00:00:00.000Z' } : recipe), special],
+      settings: { ...state.settings, appliedUpdates: state.settings.appliedUpdates.filter((name) => name !== SPECIAL_BUTTON_UPDATE) },
+    };
+    const after = migrate(before);
+    expect(product(after, 'latte-flavored-hot').options).not.toContain('Monthly Special');
+    expect(currentRecipe(after.recipes, 'latte-flavored-hot').lines.some((entry) => entry.id === 'flavor-special')).toBe(false);
+    expect(after.recipes.find((recipe) => recipe.versionId === special.versionId).supersededAt).toBeTruthy();
+    expect(product(after, 'monthly-special-hot')).toMatchObject({ recipeKey: 'monthly-special-hot', price: 3.5 });
   });
 
   it('keeps the staff-chosen flavor name and runs once', () => {
     const state = fresh();
     const renamed = { ...state, settings: { ...state.settings, monthlySpecial: 'Peppermint' } };
     expect(migrate(renamed)).toEqual(renamed);
-    expect(renamed.settings.appliedUpdates.at(-1)).toBe(MONTHLY_UPDATE);
+    expect(renamed.settings.appliedUpdates.slice(-2)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE]);
   });
 });

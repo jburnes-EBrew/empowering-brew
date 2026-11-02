@@ -301,3 +301,9 @@ These were added as a second one-time update ("Owner answers (Oct 2026)" recipe 
 - New inventory item: Monthly Special Syrup (Syrups & sauces). It uses the same bottle size (24.5 oz) and pump (0.25 oz) as the other syrups and starts at 0 on hand, so record a restock when a bottle arrives.
 - The flavored latte recipes get a new version that adds 3 pumps of Monthly Special Syrup for that choice, matching the other flavors. Whip is unchanged and there is no drizzle.
 - Topping amounts: the owner confirmed that industry-standard estimates stay in place.
+
+### Monthly special: its own button (2026-11-02)
+
+- At the owner's request, the special moved off the flavored-latte flavor list onto its own sales button, hot and iced. The button shows this month's flavor name with a "Monthly special" tag and sits last in the menu order; staff can move it in Staff → Products.
+- Recipe: the flavored latte base (1 shot, 6.9 oz milk, whip 4 Tbs, 4 oz ice when iced) plus 3 pumps of Monthly Special Syrup, with no drizzle. Price is the same as the flavored latte ($3.50), and staff can change it.
+- Sales record the product as "Pumpkin Spice (Monthly Special)" plus the flavor name, so history keeps each month's flavor.

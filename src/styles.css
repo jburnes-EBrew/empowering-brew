@@ -367,6 +367,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .special-setting span { display: grid; gap: 4px; }
 .special-setting small { color: var(--muted); line-height: 1.4; }
 .special-setting input { width: min(260px, 45%); min-height: 46px; border: 2px solid var(--line); border-radius: 10px; padding: 0 12px; font-size: 1.1rem; color: var(--espresso); }
-.flavor-grid button.special-flavor { display: grid; place-content: center; gap: 2px; border-color: #c8743a; background: #fff4e8; }
-.flavor-grid button.special-flavor small { font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .05em; color: #a25a24; }
 @media (max-width: 700px) { .special-setting { flex-direction: column; align-items: stretch; } .special-setting input { width: 100%; } }
+.product-button.special-button { border-color: #c8743a; background: #fff4e8; }
+.iced .product-button.special-button { border-color: #c8743a; background: #fff4e8; }
+.special-tag { position: absolute; top: 12px; right: 10px; padding: 1px 7px; border-radius: 7px; background: #c8743a; color: white; font-size: .66rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }

@@ -116,8 +116,10 @@ export const seedRecipes = [
   recipe('cookie-mocha-iced', 'Pinckney Panther Cookie Mocha', 'iced', 10, COOKIE, ['Whipped cream', 'Cookie crumbs']),
 ];
 
-// Flavored lattes offer a monthly special syrup. Sales record the option "Monthly Special"
-// (so recipes stay matched) plus the flavor's name that month (sale.special).
+// The monthly special has its own sales button, named after this month's flavor
+// (settings.monthlySpecial). Sales keep the flavor's name that month (sale.special).
+// It was first a flavored-latte choice; sales from then have option "Monthly Special".
+export const SPECIAL_MENU_ID = 'monthly-special';
 export const MONTHLY_SPECIAL = 'Monthly Special';
 export const optionLabel = (option, special) => option === MONTHLY_SPECIAL && special ? `${special} (Monthly Special)` : option;
 

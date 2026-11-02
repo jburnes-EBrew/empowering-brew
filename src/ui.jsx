@@ -1,4 +1,5 @@
 import React from 'react';
+import { MONTHLY_SPECIAL, SPECIAL_MENU_ID } from './data';
 
 const asset = (path) => `${import.meta.env.BASE_URL}${path}`;
 
@@ -16,7 +17,10 @@ export const oneLine = (name) => name.replace(/\n/g, ' ');
 export const prettyTemperature = (value) => value === 'hot' ? 'Hot' : value === 'iced' ? 'Iced' : 'No temperature';
 
 export const menuItemFor = (state, product) => state.menuItems.find((entry) => entry.id === product.menuItemId);
-export const productName = (state, product) => oneLine(menuItemFor(state, product)?.name || product.sourceName);
+export const specialName = (state) => state.settings?.monthlySpecial?.trim() || '';
+export const productName = (state, product) => product.menuItemId === SPECIAL_MENU_ID
+  ? (specialName(state) ? `${specialName(state)} (${MONTHLY_SPECIAL})` : MONTHLY_SPECIAL)
+  : oneLine(menuItemFor(state, product)?.name || product.sourceName);
 export const productLabel = (state, product) => `${productName(state, product)}${product.temperature === 'none' ? '' : ` · ${prettyTemperature(product.temperature)}`}`;
 
 export function Modal({ title, children, onClose, wide = false }) {
