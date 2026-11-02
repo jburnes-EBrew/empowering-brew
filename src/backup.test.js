@@ -53,6 +53,12 @@ describe('backup files', () => {
     expect(toCsv([['a "quote"', 1]])).toBe('"a ""quote""","1"');
   });
 
+  it('names the monthly special flavor a sale was made with', () => {
+    const state = withSales(['2026-10-27T10:00:00']);
+    state.sales[0] = { ...state.sales[0], option: 'Monthly Special', special: 'Pumpkin Spice' };
+    expect(salesCsvRows(state.sales)[1][4]).toBe('Pumpkin Spice (Monthly Special)');
+  });
+
   it('round-trips a full backup', () => {
     const state = withSales(['2026-10-27T10:00:00']);
     const { state: restored, exportedAt } = parseFullBackup(fullBackupText(state));

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
 import { storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
-import { INVENTORY_CATEGORIES } from './data';
+import { INVENTORY_CATEGORIES, MONTHLY_SPECIAL, optionLabel } from './data';
 import { ESTIMATE_LABELS, MEASURES, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, timeLabel } from './ui';
 
@@ -61,6 +61,7 @@ function ProductsTab({ state, setState }) {
 
   return <>
     <SectionHeading title="Products" description="One row per menu button. Hot and iced versions share a button position and are recorded as separate products." action={<button className="button primary" onClick={addNew}><PlusIcon size={22} /> Add product</button>} />
+    <MonthlySpecial state={state} setState={setState} />
     {flagged > 0 && <div className="review-notice"><AlertIcon size={21} />{flagged} names or details are flagged for review. Workbook names are kept as source names; changing the button name never changes past sales.</div>}
     <div className="data-list product-list">
       <div className="data-row data-head"><span>Product</span><span>Variants</span><span>Status</span><span>Order</span><span>Actions</span></div>
@@ -86,6 +87,15 @@ function ProductsTab({ state, setState }) {
     </div>
     {editing && <ProductEditor state={state} menuItem={editing} onSave={save} onClose={() => setEditing(null)} />}
   </>;
+}
+
+// The flavor name changes each month; the recipe and inventory item stay the same,
+// and past sales keep the name they were sold under.
+function MonthlySpecial({ state, setState }) {
+  const offered = state.products.some((product) => product.active && product.options?.includes(MONTHLY_SPECIAL));
+  return <label className="special-setting"><span><strong>Monthly special flavor</strong><small>{offered ? 'Shown as a flavor choice on flavored lattes. Change it at the start of each month; past sales keep the flavor they were sold as. It uses the Monthly Special Syrup inventory item.' : `Add "${MONTHLY_SPECIAL}" to a product's flavor choices to offer it.`}</small></span>
+    <input value={state.settings?.monthlySpecial || ''} placeholder="e.g. Pumpkin Spice" onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, monthlySpecial: event.target.value } }))} aria-label="Monthly special flavor" />
+  </label>;
 }
 
 function ProductEditor({ state, menuItem, onSave, onClose }) {
@@ -671,7 +681,7 @@ function HistoryTab({ state }) {
   const [filter, setFilter] = useState('all');
   const [limit, setLimit] = useState(150);
   const records = useMemo(() => [
-    ...state.sales.map((sale) => ({ kind: 'Sale', time: sale.soldAt, title: `${sale.productName}${sale.temperature === 'none' ? '' : ` · ${prettyTemperature(sale.temperature)}`}${sale.option ? ` · ${sale.option}` : ''}`, detail: `${sale.voidedAt ? 'Undone at the register · ' : ''}${ESTIMATE_LABELS[sale.estimateStatus] || 'Not configured'}${sale.recipeVersionId ? ` · recipe ${sale.recipeVersionId}` : ''}${sale.usage?.length ? ` · ${sale.usage.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', ')}` : ''}`, voided: !!sale.voidedAt })),
+    ...state.sales.map((sale) => ({ kind: 'Sale', time: sale.soldAt, title: `${sale.productName}${sale.temperature === 'none' ? '' : ` · ${prettyTemperature(sale.temperature)}`}${sale.option ? ` · ${optionLabel(sale.option, sale.special)}` : ''}`, detail: `${sale.voidedAt ? 'Undone at the register · ' : ''}${ESTIMATE_LABELS[sale.estimateStatus] || 'Not configured'}${sale.recipeVersionId ? ` · recipe ${sale.recipeVersionId}` : ''}${sale.usage?.length ? ` · ${sale.usage.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', ')}` : ''}`, voided: !!sale.voidedAt })),
     ...state.inventoryEvents.filter((event) => event.type !== 'opening').map((event) => ({ kind: 'Inventory', time: event.at, title: `${event.itemName || event.productName} · ${EVENT_LABELS[event.type] || event.type}`, detail: [event.type === 'count' ? `Estimated ${formatNumber(event.estimatedBefore)}, counted ${formatNumber(event.countedValue)} (${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)})` : typeof event.quantity === 'number' ? `${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)}` : event.usage?.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', '), event.reason, event.note, event.countedBy && `counted by ${event.countedBy}`, event.by && `by ${event.by}`].filter(Boolean).join(' · ') })),
     ...state.countSessions.map((session) => ({ kind: 'Count', time: session.reviewedAt || session.submittedAt, title: `Physical count · ${session.status}`, detail: `${Object.keys(session.counts).length} items · counted by ${session.countedBy || 'not given'}${session.reviewedBy ? ` · reviewed by ${session.reviewedBy}` : ''}` })),
     ...state.recipes.filter((recipe) => recipe.savedBy).map((recipe) => ({ kind: 'Recipe', time: recipe.effectiveFrom, title: `${recipe.name} · ${prettyTemperature(recipe.temperature)} · ${recipe.versionLabel}`, detail: `${recipe.changeNote} · by ${recipe.savedBy}` })),

@@ -116,6 +116,11 @@ export const seedRecipes = [
   recipe('cookie-mocha-iced', 'Pinckney Panther Cookie Mocha', 'iced', 10, COOKIE, ['Whipped cream', 'Cookie crumbs']),
 ];
 
+// Flavored lattes offer a monthly special syrup. Sales record the option "Monthly Special"
+// (so recipes stay matched) plus the flavor's name that month (sale.special).
+export const MONTHLY_SPECIAL = 'Monthly Special';
+export const optionLabel = (option, special) => option === MONTHLY_SPECIAL && special ? `${special} (Monthly Special)` : option;
+
 export const INVENTORY_CATEGORIES = ['Coffee & bar', 'Milk & cream', 'Syrups & sauces', 'Toppings & sweeteners', 'Cups & to-go', 'Supplies'];
 
 // `onHand` is the workbook value and becomes the opening balance. Units are blank

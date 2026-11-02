@@ -293,3 +293,11 @@ These were added as a second one-time update ("Owner answers (Oct 2026)" recipe 
 - Decaf is a one-sale toggle on the sales screen. That drink's coffee comes out of Coffee Decaf, and the sales CSV has a Decaf column.
 - Sweet Treat Sleeves are counted one by one. They come 50 per bundle and 6 bundles (300 sleeves) per box.
 - Remaining gap: Hot Tea has no tea bag item on the inventory list.
+
+## Monthly special (2026-11-02)
+
+- Flavored lattes (hot and iced) have a "Monthly Special" flavor choice. Staff set this month's flavor name in Staff → Products. It starts as Pumpkin Spice.
+- Each sale records the option "Monthly Special" plus the flavor name at the time of sale, so past sales keep their flavor when the name changes. The CSV shows it as "Pumpkin Spice (Monthly Special)".
+- New inventory item: Monthly Special Syrup (Syrups & sauces). It uses the same bottle size (24.5 oz) and pump (0.25 oz) as the other syrups and starts at 0 on hand, so record a restock when a bottle arrives.
+- The flavored latte recipes get a new version that adds 3 pumps of Monthly Special Syrup for that choice, matching the other flavors. Whip is unchanged and there is no drizzle.
+- Topping amounts: the owner confirmed that industry-standard estimates stay in place.

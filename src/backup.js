@@ -1,3 +1,4 @@
+import { optionLabel } from './data';
 import { ESTIMATE_LABELS } from './estimates';
 import { migrate } from './storage';
 
@@ -9,7 +10,7 @@ export function salesCsvRows(sales) {
     ['Date', 'Time', 'Product', 'Temperature', 'Flavor', 'Decaf', 'Price', 'Status', 'Source name', 'Recipe version', 'Estimate status', 'Estimated usage'],
     ...sales.map((sale) => {
       const at = new Date(sale.soldAt);
-      return [at.toLocaleDateString('en-US'), at.toLocaleTimeString('en-US'), sale.productName, TEMPERATURES[sale.temperature] ?? sale.temperature, sale.option || '', sale.decaf ? 'Yes' : '', sale.price?.toFixed(2), sale.voidedAt ? 'Undone' : 'Sold', sale.sourceName, sale.recipeVersionId || '', ESTIMATE_LABELS[sale.estimateStatus] || '', (sale.usage || []).map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join('; ')];
+      return [at.toLocaleDateString('en-US'), at.toLocaleTimeString('en-US'), sale.productName, TEMPERATURES[sale.temperature] ?? sale.temperature, optionLabel(sale.option, sale.special) || '', sale.decaf ? 'Yes' : '', sale.price?.toFixed(2), sale.voidedAt ? 'Undone' : 'Sold', sale.sourceName, sale.recipeVersionId || '', ESTIMATE_LABELS[sale.estimateStatus] || '', (sale.usage || []).map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join('; ')];
     }),
   ];
 }

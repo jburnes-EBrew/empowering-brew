@@ -1,4 +1,4 @@
-import { FLAVOR_NOTE, SYRUP_NOTE_V1, fixed, line, seedProducts } from './data';
+import { FLAVOR_NOTE, MONTHLY_SPECIAL, SYRUP_NOTE_V1, fixed, line, seedProducts } from './data';
 
 // Owner-supplied data that arrives after the first import. Each update runs once per
 // device (tracked in settings.appliedUpdates) and never overwrites anything staff have
@@ -287,4 +287,40 @@ export function applyAnswersUpdate(state, now = new Date().toISOString()) {
   };
 }
 
-export const applyUpdates = (state, now) => applyAnswersUpdate(applyWorksheetUpdate(state, now), now);
+
+// Monthly special (Nov 2026): one syrup bottle that holds whichever flavor is this
+// month's special. Staff set the flavor's name in Staff → Products; it starts as
+// Pumpkin Spice. Pumps match the other latte flavors.
+export const MONTHLY_UPDATE = 'monthly-special-2026-11';
+const MONTHLY_LABEL = 'Monthly special (Nov 2026)';
+const SPECIAL_ITEM_ID = 'monthly-special-syrup';
+const specialLine = () => forOptions(confirmed(line('flavor-special', 'syrup', 'Monthly Special Syrup', fixed(3), 'pump', SPECIAL_ITEM_ID)), [MONTHLY_SPECIAL]);
+
+export function applyMonthlySpecialUpdate(state, now = new Date().toISOString()) {
+  if (state.settings?.appliedUpdates?.includes(MONTHLY_UPDATE)) return state;
+  const flavored = new Set(state.products.filter((product) => product.menuItemId === 'cafe-latte-flavored').map((product) => product.recipeKey).filter(Boolean));
+  const supersede = new Set();
+  const added = [];
+  for (const recipe of state.recipes) {
+    // Only recipes still at a version this app supplied; staff edits are left alone.
+    if (recipe.supersededAt || !flavored.has(recipe.recipeKey) || ![WORKSHEET_LABEL, ANSWERS_LABEL].includes(recipe.versionLabel)) continue;
+    if (recipe.lines.some((entry) => entry.forOptions?.includes(MONTHLY_SPECIAL))) continue;
+    supersede.add(recipe.versionId);
+    added.push({ ...recipe, versionId: `${recipe.recipeKey}-special-v${recipe.version + 1}`, version: recipe.version + 1, versionLabel: MONTHLY_LABEL, effectiveFrom: now, supersededAt: null,
+      lines: [...recipe.lines, specialLine()], changeNote: 'Added the monthly special flavor: 3 pumps of Monthly Special Syrup.' });
+  }
+  const hasItem = state.inventory.some((item) => item.id === SPECIAL_ITEM_ID);
+  const item = { id: SPECIAL_ITEM_ID, name: 'Monthly Special Syrup', sourceName: 'Owner request (Nov 2026)', category: 'Syrups & sauces', full: 0, onHand: 0, need: 0,
+    countUnit: 'bottle', usageUnit: 'oz', usagePerCount: 24.5, ozPerPump: 0.25, ozPerShot: null, active: true,
+    note: 'Whichever syrup is this month\'s special. Bottle size and pump match the other syrups; change them if the special comes in a different bottle.' };
+  return {
+    ...state,
+    products: state.products.map((product) => product.menuItemId === 'cafe-latte-flavored' && !product.options?.includes(MONTHLY_SPECIAL) ? { ...product, options: [...(product.options || []), MONTHLY_SPECIAL] } : product),
+    recipes: [...state.recipes.map((recipe) => supersede.has(recipe.versionId) ? { ...recipe, supersededAt: now } : recipe), ...added],
+    inventory: hasItem ? state.inventory : [...state.inventory, item],
+    inventoryEvents: hasItem ? state.inventoryEvents : [...state.inventoryEvents, { id: `opening-${SPECIAL_ITEM_ID}`, type: 'opening', itemId: SPECIAL_ITEM_ID, itemName: item.name, countedValue: 0, at: now, by: 'App update', note: 'New item; record a restock or count when a bottle arrives' }],
+    settings: { monthlySpecial: 'Pumpkin Spice', ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), MONTHLY_UPDATE] },
+  };
+}
+
+export const applyUpdates = (state, now) => applyMonthlySpecialUpdate(applyAnswersUpdate(applyWorksheetUpdate(state, now), now), now);

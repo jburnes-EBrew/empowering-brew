@@ -3,7 +3,7 @@ import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, 
 import { saveState, hashPin, uid } from './storage';
 import { currentRecipe, estimateUsage } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
-import { INVENTORY_CATEGORIES } from './data';
+import { INVENTORY_CATEGORIES, MONTHLY_SPECIAL, optionLabel } from './data';
 import { Brand, Credit, LogoFull, Modal, menuItemFor, oneLine, prettyTemperature, productLabel, productName, todayLabel } from './ui';
 import StaffWorkspace from './staff';
 
@@ -97,16 +97,17 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     const recipe = currentRecipe(state.recipes, product.recipeKey);
     const isDrink = menuItemFor(state, product)?.kind !== 'food';
     const madeDecaf = decaf && isDrink;
+    const special = option === MONTHLY_SPECIAL ? state.settings?.monthlySpecial || '' : '';
     const estimate = madeDecaf ? decafEstimate(estimateUsage(recipe, state.inventory, option), state.inventory) : estimateUsage(recipe, state.inventory, option);
     const sale = {
       id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
-      temperature: product.temperature, option, ...(madeDecaf ? { decaf: true } : {}), price: product.price, soldAt: new Date().toISOString(),
+      temperature: product.temperature, option, ...(special ? { special } : {}), ...(madeDecaf ? { decaf: true } : {}), price: product.price, soldAt: new Date().toISOString(),
       recipeVersionId: recipe?.versionId || null, estimateStatus: estimate.status, usage: estimate.usage, gaps: estimate.gaps,
     };
     setState((current) => ({ ...current, sales: [...current.sales, sale] }));
     setLastSaleId(sale.id);
     if (madeDecaf) setDecaf(false);
-    setMessage(`${productLabel(state, product)}${option ? ` · ${option}` : ''}${madeDecaf ? ' · Decaf' : ''} recorded`);
+    setMessage(`${productLabel(state, product)}${option ? ` · ${optionLabel(option, special)}` : ''}${madeDecaf ? ' · Decaf' : ''} recorded`);
   };
 
   const selectProduct = (product) => product.options?.length ? setOptionProduct(product) : recordSale(product);
@@ -156,7 +157,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
         <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
       </div>
     </footer>
-    {optionProduct && <OptionPicker title={productLabel(state, optionProduct)} options={optionProduct.options} onClose={() => setOptionProduct(null)} onSelect={(option) => { recordSale(optionProduct, option); setOptionProduct(null); }} />}
+    {optionProduct && <OptionPicker title={productLabel(state, optionProduct)} options={optionProduct.options} special={state.settings?.monthlySpecial} onClose={() => setOptionProduct(null)} onSelect={(option) => { recordSale(optionProduct, option); setOptionProduct(null); }} />}
   </main>;
 }
 
@@ -176,10 +177,12 @@ function ProductButton({ name, product, onSelect }) {
   </button>;
 }
 
-function OptionPicker({ title, options, onClose, onSelect }) {
+function OptionPicker({ title, options, special, onClose, onSelect }) {
   return <Modal title={title} onClose={onClose}>
     <p className="picker-help">Choose the flavor the customer ordered.</p>
-    <div className="flavor-grid">{options.map((option) => <button key={option} onClick={() => onSelect(option)}>{option}</button>)}</div>
+    <div className="flavor-grid">{options.map((option) => option === MONTHLY_SPECIAL
+      ? <button key={option} className="special-flavor" onClick={() => onSelect(option)}><small>Monthly special</small>{special || MONTHLY_SPECIAL}</button>
+      : <button key={option} onClick={() => onSelect(option)}>{option}</button>)}</div>
     <button className="button secondary full-button" onClick={onClose}>Cancel</button>
   </Modal>;
 }

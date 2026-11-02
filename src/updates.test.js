@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
 import { currentRecipe, estimateUsage, inventoryBalances } from './estimates';
 import { migrate } from './storage';
-import { ANSWERS_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
+import { ANSWERS_UPDATE, MONTHLY_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
 
 const fresh = () => migrate(cloneInitialState('2026-10-01T00:00:00.000Z'));
 const product = (state, id) => state.products.find((entry) => entry.id === id);
@@ -76,5 +76,25 @@ describe('worksheet and owner-answer updates', () => {
     expect(updated.recipes.filter((recipe) => recipe.recipeKey === 'rock-chalk-hot')).toHaveLength(1);
     expect(applyAnswersUpdate(applyWorksheetUpdate(updated))).toBe(updated);
     expect(updated.settings.appliedUpdates).toEqual([WORKSHEET_UPDATE, ANSWERS_UPDATE]);
+  });
+});
+
+describe('monthly special', () => {
+  it('offers the monthly special on flavored lattes, using its own syrup', () => {
+    const state = fresh();
+    expect(state.settings.monthlySpecial).toBe('Pumpkin Spice');
+    expect(product(state, 'latte-flavored-iced').options.at(-1)).toBe('Monthly Special');
+    const estimate = estimateUsage(recipeFor(state, 'latte-flavored-iced'), state.inventory, 'Monthly Special');
+    expect(estimate.status).toBe('complete');
+    expect(used(estimate)['Monthly Special Syrup']).toBe('0.75 oz');
+    expect(used(estimate)['Vanilla Syrup']).toBeUndefined();
+    expect(inventoryBalances(state)['monthly-special-syrup'].estimate).toBe(0);
+  });
+
+  it('keeps the staff-chosen flavor name and runs once', () => {
+    const state = fresh();
+    const renamed = { ...state, settings: { ...state.settings, monthlySpecial: 'Peppermint' } };
+    expect(migrate(renamed)).toEqual(renamed);
+    expect(renamed.settings.appliedUpdates.at(-1)).toBe(MONTHLY_UPDATE);
   });
 });
