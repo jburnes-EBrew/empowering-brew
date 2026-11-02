@@ -23,38 +23,38 @@ export const MinusIcon = ({ size }) => <Svg size={size}><path d="M5 12h14" /></S
 export const CupLogo = ({ size = 42 }) => <Svg size={size}><path d="M4 9h14v5a6 6 0 0 1-12 0V9Z"/><path d="M18 10h1a3 3 0 0 1 0 6h-1M7 21h10M8 6c-2-2 2-3 0-5M13 6c-2-2 2-3 0-5"/></Svg>;
 
 export function DrinkIcon({ type = 'latte', temperature = 'hot' }) {
-  const accent = temperature === 'hot' ? '#d88713' : '#17608b';
+  const accent = temperature === 'hot' ? '#e9a820' : '#046bb1';
   if (type === 'treat') return (
     <svg viewBox="0 0 92 80" className="drink-illustration" aria-hidden="true">
-      <path d="M25 35h42l-5 36H30l-5-36Z" fill="#d88713" opacity=".7" stroke="#6b3e25" strokeWidth="4"/>
-      <path d="M24 36c-2-10 7-15 15-12 1-9 16-11 20-2 10-2 16 5 12 14H24Z" fill="#fff3df" stroke="#6b3e25" strokeWidth="4"/>
+      <path d="M25 35h42l-5 36H30l-5-36Z" fill="#e9a820" opacity=".8" stroke="#0a2e66" strokeWidth="4"/>
+      <path d="M24 36c-2-10 7-15 15-12 1-9 16-11 20-2 10-2 16 5 12 14H24Z" fill="#fff3df" stroke="#0a2e66" strokeWidth="4"/>
       <path d="M36 44v19M47 44v19M58 44v19" stroke="#fff3df" strokeWidth="3" opacity=".8"/>
       <circle cx="46" cy="18" r="5" fill="#b44040"/>
     </svg>
   );
   if (type === 'tea') return (
     <svg viewBox="0 0 92 80" className="drink-illustration" aria-hidden="true">
-      <path d="M17 27h52v23c0 16-11 25-26 25S17 66 17 50V27Z" fill="#fff" stroke="#6b3e25" strokeWidth="4"/>
-      <path d="M68 34h8c14 0 14 21 0 21h-8" fill="none" stroke="#6b3e25" strokeWidth="4"/>
+      <path d="M17 27h52v23c0 16-11 25-26 25S17 66 17 50V27Z" fill="#fff" stroke="#0a2e66" strokeWidth="4"/>
+      <path d="M68 34h8c14 0 14 21 0 21h-8" fill="none" stroke="#0a2e66" strokeWidth="4"/>
       <path d="M21 42h44v9c0 13-9 20-22 20S21 64 21 51v-9Z" fill="#d89628" opacity=".9"/>
       <path d="M12 58c12-7 18 0 22 13-13 2-21-2-22-13Z" fill="#6c8f47"/>
     </svg>
   );
   if (type === 'black') return (
     <svg viewBox="0 0 92 80" className="drink-illustration" aria-hidden="true">
-      <path d="M17 25h52v27c0 15-11 23-26 23S17 67 17 52V25Z" fill="#4a2919" stroke="#4a2919" strokeWidth="4"/>
-      <path d="M68 33h8c14 0 14 22 0 22h-8" fill="none" stroke="#4a2919" strokeWidth="5"/>
-      <ellipse cx="43" cy="26" rx="26" ry="7" fill="#f4e2ca" stroke="#4a2919" strokeWidth="4"/><ellipse cx="43" cy="27" rx="20" ry="4" fill="#2b1710"/>
+      <path d="M17 25h52v27c0 15-11 23-26 23S17 67 17 52V25Z" fill="#0a2e66" stroke="#0a2e66" strokeWidth="4"/>
+      <path d="M68 33h8c14 0 14 22 0 22h-8" fill="none" stroke="#0a2e66" strokeWidth="5"/>
+      <ellipse cx="43" cy="26" rx="26" ry="7" fill="#f4e2ca" stroke="#0a2e66" strokeWidth="4"/><ellipse cx="43" cy="27" rx="20" ry="4" fill="#2b1710"/>
     </svg>
   );
   return (
     <svg viewBox="0 0 92 80" className="drink-illustration" aria-hidden="true">
-      <path d="M18 30h52v22c0 15-11 23-26 23S18 67 18 52V30Z" fill="#fffdfa" stroke="#6b3e25" strokeWidth="4"/>
-      <path d="M69 36h7c14 0 14 20 0 20h-7" fill="none" stroke="#6b3e25" strokeWidth="4"/>
+      <path d="M18 30h52v22c0 15-11 23-26 23S18 67 18 52V30Z" fill="#ffffff" stroke="#0a2e66" strokeWidth="4"/>
+      <path d="M69 36h7c14 0 14 20 0 20h-7" fill="none" stroke="#0a2e66" strokeWidth="4"/>
       <path d="M22 44h44v9c0 11-9 18-22 18s-22-7-22-18v-9Z" fill={accent} opacity=".55"/>
-      <path d="M25 31c4-14 10-9 14-19 5 8 7 9 11 1 2 9 12 9 14 18" fill="#f5eadc" stroke="#6b3e25" strokeWidth="3"/>
+      <path d="M25 31c4-14 10-9 14-19 5 8 7 9 11 1 2 9 12 9 14 18" fill="#f5eadc" stroke="#0a2e66" strokeWidth="3"/>
       {type === 'mocha' && <path d="M31 24c8 5 18-4 27 2" stroke="#4a2919" strokeWidth="3"/>}
-      {type === 'caramel' && <path d="M31 22c9 8 17-5 27 4" stroke="#d88713" strokeWidth="3"/>}
+      {type === 'caramel' && <path d="M31 22c9 8 17-5 27 4" stroke="#e9a820" strokeWidth="3"/>}
     </svg>
   );
 }
