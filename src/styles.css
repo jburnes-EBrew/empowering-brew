@@ -379,3 +379,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .iced .product-button.special-button { border-color: var(--highlight); background: var(--highlight-soft); }
 .special-tag { position: absolute; top: 12px; right: 10px; padding: 1px 7px; border-radius: 7px; background: var(--highlight); color: var(--headers); font-size: .66rem; font-weight: 850; text-transform: uppercase; letter-spacing: .04em; }
 h1, h2, h3 { color: var(--headers); }
+.busy-summary { margin: 0 0 12px; color: var(--espresso); }
+.busy-table td:not(:first-child):not(:last-child) { min-width: 64px; font-weight: 800; }
+.chip-gap { width: 14px; }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { estimateUsage, inventoryBalances, weeklyReport } from './estimates';
+import { busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
 import { migrate } from './storage';
 
 const configured = () => {
@@ -89,5 +89,20 @@ describe('reports and migration', () => {
     expect(next.staffPinHash).toBe('abc');
     expect(next.sales[0]).toMatchObject({ id: 'x', temperature: 'none', menuItemId: 'sweet-treat', estimateStatus: 'not-configured' });
     expect(inventoryBalances(next).ice.estimate).toBe(1);
+  });
+});
+
+describe('busy times', () => {
+  it('counts sales by weekday and half hour, skipping undone sales', () => {
+    const sale = (iso, extra = {}) => ({ soldAt: new Date(iso).toISOString(), ...extra });
+    const result = busyTimes([
+      sale('2026-11-02T07:40:00'), sale('2026-11-02T07:55:00'), sale('2026-11-02T08:05:00'),
+      sale('2026-11-03T07:45:00'), sale('2026-11-02T07:50:00', { voidedAt: 'x' }),
+    ]);
+    expect(result.total).toBe(4);
+    expect(result.slots.map((slot) => clockLabel(slot.startMinutes))).toEqual(['7:30 AM', '8:00 AM']);
+    expect(result.slots[0].days.slice(0, 2)).toEqual([2, 1]);
+    expect(result.busiest).toEqual({ startMinutes: 450, day: 0, count: 2 });
+    expect(busyTimes([]).slots).toEqual([]);
   });
 });

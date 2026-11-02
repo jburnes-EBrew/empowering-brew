@@ -118,3 +118,31 @@ export function weeklyReport(state, startDate) {
   }
   return { start, end, sales, rows, usage: Object.values(usage).sort((a, b) => a.itemName.localeCompare(b.itemName)), withoutFullEstimate: sales.filter((sale) => sale.estimateStatus !== 'complete').length };
 }
+
+// Busy times: sales counted per weekday and time slot (local time on this iPad),
+// for planning staffing and prep. Only the slots between the first and last sale are shown.
+export function busyTimes(sales, slotMinutes = 30) {
+  const counted = sales.filter((sale) => !sale.voidedAt);
+  const slotOf = (date) => Math.floor((date.getHours() * 60 + date.getMinutes()) / slotMinutes);
+  const cells = new Map();
+  for (const sale of counted) {
+    const at = new Date(sale.soldAt);
+    const key = `${slotOf(at)}|${(at.getDay() + 6) % 7}`;
+    cells.set(key, (cells.get(key) || 0) + 1);
+  }
+  if (!cells.size) return { slots: [], max: 0, busiest: null, total: 0 };
+  const slotNumbers = [...cells.keys()].map((key) => Number(key.split('|')[0]));
+  const slots = [];
+  for (let slot = Math.min(...slotNumbers); slot <= Math.max(...slotNumbers); slot += 1) {
+    const days = Array.from({ length: 7 }, (_, day) => cells.get(`${slot}|${day}`) || 0);
+    slots.push({ startMinutes: slot * slotMinutes, days, total: days.reduce((sum, count) => sum + count, 0) });
+  }
+  let busiest = null;
+  for (const slot of slots) slot.days.forEach((count, day) => { if (count && (!busiest || count > busiest.count)) busiest = { startMinutes: slot.startMinutes, day, count }; });
+  return { slots, max: busiest.count, busiest, total: counted.length, slotMinutes };
+}
+
+export const clockLabel = (minutes) => {
+  const hours = Math.floor(minutes / 60) % 24;
+  return `${hours % 12 || 12}:${String(minutes % 60).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+};
