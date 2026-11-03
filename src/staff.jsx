@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
-import { storageStatus, uid } from './storage';
+import { hashPin, storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
 import { ESTIMATE_LABELS, MEASURES, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
@@ -24,7 +24,7 @@ export default function StaffWorkspace({ state, setState, staffName, onBack, onS
       {tab === 'products' && <ProductsTab state={state} setState={setState} />}
       {tab === 'recipes' && <RecipesTab state={state} setState={setState} staffName={staffName} />}
       {tab === 'inventory' && <InventoryTab state={state} setState={setState} staffName={staffName} onStartCount={onStartCount} />}
-      {tab === 'reports' && <ReportsTab state={state} setState={setState} />}
+      {tab === 'reports' && <ReportsTab state={state} setState={setState} staffName={staffName} />}
       {tab === 'history' && <HistoryTab state={state} />}
       <Credit />
     </section>
@@ -600,7 +600,7 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-function ReportsTab({ state, setState }) {
+function ReportsTab({ state, setState, staffName }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
   const report = useMemo(() => weeklyReport(state, start), [state, start]);
   const shift = (weeks) => setStart((current) => { const next = new Date(current); next.setDate(next.getDate() + weeks * 7); return next; });
@@ -611,6 +611,7 @@ function ReportsTab({ state, setState }) {
   const exportCsv = () => saveFile(`empowering-brew-sales-week-of-${dateStamp(report.start)}.csv`, toCsv(salesCsvRows(report.sales)), 'text/csv');
   return <>
     <BackupPanel state={state} setState={setState} />
+    <PinPanel state={state} setState={setState} staffName={staffName} />
     <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
@@ -703,6 +704,53 @@ function BackupPanel({ state, setState }) {
       <label className="backup-time">Daily reminder<input type="time" value={state.settings?.backupTime || ''} onChange={(event) => setState((current) => ({ ...current, settings: { ...current.settings, backupTime: event.target.value } }))} /><small>Clear to turn off</small></label>
     </div>
   </section>;
+}
+
+// One staff PIN is shared by everyone on this iPad; each person still enters their own name.
+function PinPanel({ state, setState, staffName }) {
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState('');
+  const changedAt = state.settings?.pinChangedAt;
+  const save = (staffPinHash) => {
+    setState((current) => ({ ...current, staffPinHash, settings: { ...current.settings, pinChangedAt: new Date().toISOString(), pinChangedBy: staffName } }));
+    setOpen(false);
+    setMessage('Staff PIN changed. Use the new PIN from now on.');
+  };
+  return <section className="backup-panel pin-panel">
+    <div>
+      <h3>Staff PIN</h3>
+      <p>All staff share one four-number PIN on this iPad. Change it if a student learns it or someone leaves. Restoring a full backup brings back the PIN saved in that backup.</p>
+      {changedAt && <p className="storage-status">Last changed {timeLabel(changedAt)}{state.settings?.pinChangedBy ? ` by ${state.settings.pinChangedBy}` : ''}.</p>}
+      {message && <p className="backup-message" role="status">{message}</p>}
+    </div>
+    <div className="backup-actions"><button className="button secondary" onClick={() => { setMessage(''); setOpen(true); }}>Change PIN</button></div>
+    {open && <ChangePinModal pinHash={state.staffPinHash} onSave={save} onClose={() => setOpen(false)} />}
+  </section>;
+}
+
+function ChangePinModal({ pinHash, onSave, onClose }) {
+  const [current, setCurrent] = useState('');
+  const [pin, setPin] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const digits = (setter) => (event) => setter(event.target.value.replace(/\D/g, ''));
+  const submit = async (event) => {
+    event.preventDefault();
+    if (await hashPin(current) !== pinHash) return setError('The current PIN is not correct.');
+    if (!/^\d{4}$/.test(pin)) return setError('Enter exactly four numbers for the new PIN.');
+    if (pin !== confirm) return setError('The two new PIN entries do not match.');
+    onSave(await hashPin(pin));
+  };
+  const field = (label, value, setter, autoFocus = false) => <label>{label}<input autoFocus={autoFocus} type="password" inputMode="numeric" pattern="[0-9]*" maxLength="4" value={value} onChange={digits(setter)} /></label>;
+  return <Modal title="Change staff PIN" onClose={onClose}>
+    <form onSubmit={submit} className="stack-form">
+      {field('Current PIN', current, setCurrent, true)}
+      {field('New four-number PIN', pin, setPin)}
+      {field('Confirm new PIN', confirm, setConfirm)}
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary">Save new PIN</button></div>
+    </form>
+  </Modal>;
 }
 
 const sizeLabel = (bytes) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${(bytes / 1e6).toFixed(1)} MB`;
