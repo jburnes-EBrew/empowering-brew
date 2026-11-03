@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
 import { saveState, hashPin, uid } from './storage';
-import { currentRecipe, estimateUsage } from './estimates';
+import { changeChoices, currentRecipe, estimateUsage, withChanges } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SPECIAL_MENU_ID } from './data';
 import { Brand, Credit, LogoFull, Modal, menuItemFor, oneLine, prettyTemperature, productLabel, productName, specialName, todayLabel } from './ui';
@@ -85,6 +85,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
   const [optionProduct, setOptionProduct] = useState(null);
   const [lastSaleId, setLastSaleId] = useState(null);
   const [decaf, setDecaf] = useState(false);
+  const [studentDrink, setStudentDrink] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
   const due = backupDue(state, now);
@@ -93,24 +94,38 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
   const columns = slots.length <= 12 ? 3 : 4;
   const rows = Math.max(4, Math.ceil(slots.length / columns));
 
-  const recordSale = (product, option = null) => {
+  const isDrink = (product) => menuItemFor(state, product)?.kind !== 'food';
+  const recordSale = (product, option = null, changes = []) => {
     const recipe = currentRecipe(state.recipes, product.recipeKey);
-    const isDrink = menuItemFor(state, product)?.kind !== 'food';
-    const madeDecaf = decaf && isDrink;
+    const madeDecaf = decaf && isDrink(product);
+    const free = studentDrink && isDrink(product);
     const special = product.menuItemId === SPECIAL_MENU_ID ? specialName(state) : '';
-    const estimate = madeDecaf ? decafEstimate(estimateUsage(recipe, state.inventory, option), state.inventory) : estimateUsage(recipe, state.inventory, option);
+    const baseEstimate = estimateUsage(withChanges(recipe, changes), state.inventory, option);
+    const estimate = madeDecaf ? decafEstimate(baseEstimate, state.inventory) : baseEstimate;
     const sale = {
       id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
-      temperature: product.temperature, option, ...(special ? { special } : {}), ...(madeDecaf ? { decaf: true } : {}), price: product.price, soldAt: new Date().toISOString(),
+      temperature: product.temperature, option, ...(changes.length ? { changes } : {}), ...(special ? { special } : {}), ...(madeDecaf ? { decaf: true } : {}),
+      ...(free ? { studentDrink: true } : {}), price: free ? 0 : product.price, soldAt: new Date().toISOString(),
       recipeVersionId: recipe?.versionId || null, estimateStatus: estimate.status, usage: estimate.usage, gaps: estimate.gaps,
     };
     setState((current) => ({ ...current, sales: [...current.sales, sale] }));
     setLastSaleId(sale.id);
     if (madeDecaf) setDecaf(false);
-    setMessage(`${productLabel(state, product)}${option ? ` · ${option}` : ''}${madeDecaf ? ' · Decaf' : ''} recorded`);
+    if (free) setStudentDrink(false);
+    setMessage(`${[productLabel(state, product), option, ...changes, madeDecaf && 'Decaf', free && 'Student drink ($0)'].filter(Boolean).join(' · ')} recorded`);
   };
 
-  const selectProduct = (product) => product.options?.length ? setOptionProduct(product) : recordSale(product);
+  // Drinks open a picker for flavor and changes; a drink with neither records in one tap.
+  const pickerFor = (product) => {
+    const recipe = currentRecipe(state.recipes, product.recipeKey);
+    const toppings = !product.options?.includes('No topping'); // plain lattes choose toppings as their option
+    return { product, recipe, choices: (option) => changeChoices(recipe, option, state.inventory, { toppings }) };
+  };
+  const selectProduct = (product) => {
+    const picker = pickerFor(product);
+    if (product.options?.length || picker.choices(null).length) setOptionProduct(picker);
+    else recordSale(product);
+  };
 
   // Undo only reaches the sale just recorded on this screen, and keeps it in the log as voided.
   const undo = () => {
@@ -126,6 +141,8 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     setState((current) => ({ ...current, settings: { ...current.settings, lastSalesBackupAt: savedAt } }));
     setMessage('Backup saved');
   };
+
+  const pending = [decaf && 'decaf', studentDrink && 'a free student drink ($0)'].filter(Boolean);
 
   const switchTo = (temp) => { setTemperature(temp); setMessage(`${prettyTemperature(temp)} drinks`); };
 
@@ -150,14 +167,15 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
       </div>
     </section>
     <footer className={`confirmation-rail ${lastSaleId ? 'has-sale' : ''}`} aria-live="polite">
-      <div className="confirmation-message"><span className="confirm-icon"><CheckIcon size={28} /></span><strong>{decaf ? 'Next drink will be recorded as decaf' : message}</strong></div>
+      <div className="confirmation-message"><span className="confirm-icon"><CheckIcon size={28} /></span><strong>{pending.length ? `Next drink will be recorded as ${pending.join(' and ')}` : message}</strong></div>
       <div className="rail-actions">
+        <button className={`decaf-button student-button ${studentDrink ? 'on' : ''}`} aria-pressed={studentDrink} onClick={() => setStudentDrink(!studentDrink)}>{studentDrink ? 'Student drink ✓' : 'Student drink'}</button>
         <button className={`decaf-button ${decaf ? 'on' : ''}`} aria-pressed={decaf} onClick={() => setDecaf(!decaf)}>{decaf ? 'Decaf ✓' : 'Decaf'}</button>
         {due && <button className="backup-button" onClick={saveBackup}><DownloadIcon size={23} /> Save backup</button>}
         <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
       </div>
     </footer>
-    {optionProduct && <OptionPicker title={productLabel(state, optionProduct)} options={optionProduct.options} onClose={() => setOptionProduct(null)} onSelect={(option) => { recordSale(optionProduct, option); setOptionProduct(null); }} />}
+    {optionProduct && <DrinkPicker title={productLabel(state, optionProduct.product)} options={optionProduct.product.options || []} choices={optionProduct.choices} onClose={() => setOptionProduct(null)} onRecord={(option, changes) => { recordSale(optionProduct.product, option, changes); setOptionProduct(null); }} />}
   </main>;
 }
 
@@ -178,10 +196,24 @@ function ProductButton({ name, special = false, product, onSelect }) {
   </button>;
 }
 
-function OptionPicker({ title, options, onClose, onSelect }) {
+// Flavor (when the drink has choices) plus any changes, then one big button to record.
+function DrinkPicker({ title, options, choices, onClose, onRecord }) {
+  const [option, setOption] = useState(null);
+  const [changes, setChanges] = useState([]);
+  const available = choices(option);
+  const picked = changes.filter((change) => available.includes(change));
+  const needsOption = options.length > 0 && !option;
+  const toggle = (change) => setChanges((current) => current.includes(change) ? current.filter((entry) => entry !== change) : [...current, change]);
   return <Modal title={title} onClose={onClose}>
-    <p className="picker-help">Choose the flavor the customer ordered.</p>
-    <div className="flavor-grid">{options.map((option) => <button key={option} onClick={() => onSelect(option)}>{option}</button>)}</div>
+    {options.length > 0 && <>
+      <h3 className="picker-heading">1. Choose the flavor</h3>
+      <div className="flavor-grid">{options.map((entry) => <button key={entry} className={option === entry ? 'selected' : ''} aria-pressed={option === entry} onClick={() => setOption(entry)}>{entry}</button>)}</div>
+    </>}
+    {available.length > 0 && <>
+      <h3 className="picker-heading">{options.length ? '2. Any changes?' : 'Any changes?'} <small>Skip if none</small></h3>
+      <div className="change-grid">{available.map((change) => <button key={change} className={picked.includes(change) ? 'selected' : ''} aria-pressed={picked.includes(change)} onClick={() => toggle(change)}>{picked.includes(change) ? '✓ ' : ''}{change}</button>)}</div>
+    </>}
+    <button className="button primary full-button record-button" disabled={needsOption} onClick={() => onRecord(option, picked)}>{needsOption ? 'Choose a flavor first' : picked.length ? `Record with ${picked.length} ${picked.length === 1 ? 'change' : 'changes'}` : 'Record drink'}</button>
     <button className="button secondary full-button" onClick={onClose}>Cancel</button>
   </Modal>;
 }

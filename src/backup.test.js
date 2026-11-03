@@ -59,6 +59,14 @@ describe('backup files', () => {
     expect(salesCsvRows(state.sales)[1][4]).toBe('Pumpkin Spice (Monthly Special)');
   });
 
+  it('lists changes and free student drinks', () => {
+    const state = withSales(['2026-10-27T10:00:00']);
+    state.sales[0] = { ...state.sales[0], price: 0, studentDrink: true, changes: ['No whipped cream', 'Extra shot'] };
+    const row = salesCsvRows(state.sales)[1];
+    expect(row[6]).toBe('0.00');
+    expect(row.slice(-2)).toEqual(['No whipped cream; Extra shot', 'Yes']);
+  });
+
   it('round-trips a full backup', () => {
     const state = withSales(['2026-10-27T10:00:00']);
     const { state: restored, exportedAt } = parseFullBackup(fullBackupText(state));

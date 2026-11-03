@@ -18,6 +18,36 @@ export function lineQuantity(line) {
 // details but only the lines used by every sale are counted as usage.
 export const lineApplies = (entry, option) => !entry.forOptions?.length || entry.forOptions.includes(option);
 
+// Changes a customer can ask for at the register. Toppings come off by name; an extra
+// shot adds one espresso shot; soy milk takes the milk from Soy Milk instead.
+// A sale's changes adjust its inventory estimate, not its price.
+export const EXTRA_SHOT = 'Extra shot';
+export const SOY_MILK = 'Soy milk';
+const noLabel = (entry) => `No ${entry.label.toLowerCase()}`;
+const SOY_ITEM = 'soy-milk';
+const isShot = (entry) => entry.role === 'espresso' && entry.unit === 'shot'; // brewed coffee grounds share the role
+
+export function changeChoices(recipe, option, inventory, { toppings = true } = {}) {
+  if (!recipe) return [];
+  const lines = recipe.lines.filter((entry) => !entry.excluded && lineApplies(entry, option));
+  const choices = toppings ? lines.filter((entry) => entry.role === 'topping').map(noLabel) : [];
+  if (lines.some(isShot)) choices.push(EXTRA_SHOT);
+  if (lines.some((entry) => entry.role === 'milk' && entry.itemId !== SOY_ITEM) && inventory.some((item) => item.id === SOY_ITEM && item.active)) choices.push(SOY_MILK);
+  return [...new Set(choices)];
+}
+
+export function withChanges(recipe, changes = []) {
+  if (!recipe || !changes.length) return recipe;
+  const lines = recipe.lines.filter((entry) => !(entry.role === 'topping' && changes.includes(noLabel(entry)))).map((entry) => {
+    if (isShot(entry) && changes.includes(EXTRA_SHOT) && entry.amount) {
+      return { ...entry, amount: { min: entry.amount.min + 1, max: entry.amount.max + 1 }, calcAmount: entry.calcAmount == null ? null : entry.calcAmount + 1 };
+    }
+    if (entry.role === 'milk' && changes.includes(SOY_MILK)) return { ...entry, itemId: SOY_ITEM, itemConfirmed: true };
+    return entry;
+  });
+  return { ...recipe, lines };
+}
+
 // Recipe units converted to ounces with a per-item setting before counting against inventory.
 export const MEASURES = {
   pump: { field: 'ozPerPump', missing: 'pump volume not measured' },

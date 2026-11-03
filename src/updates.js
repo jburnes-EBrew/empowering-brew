@@ -358,4 +358,33 @@ export function applySpecialButtonUpdate(state, now = new Date().toISOString()) 
   return { ...state, menuItems, products, recipes, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), SPECIAL_BUTTON_UPDATE] } };
 }
 
-export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate].reduce((next, update) => update(next, now), state);
+// The owner asked for plain Vanilla as a flavored-latte choice (no drizzle), next to the
+// Vanilla + drizzle choices. App-supplied recipes get a new version whose vanilla syrup
+// line also covers it; recipes staff have saved themselves are left alone.
+export const VANILLA_UPDATE = 'plain-vanilla-2026-11';
+const VANILLA = 'Vanilla';
+const VANILLA_LABEL = 'Plain vanilla added (Nov 2026)';
+
+export function applyVanillaUpdate(state, now = new Date().toISOString()) {
+  if (state.settings?.appliedUpdates?.includes(VANILLA_UPDATE)) return state;
+  const products = state.products.map((product) => {
+    const at = product.options?.indexOf('Vanilla + chocolate drizzle') ?? -1;
+    if (product.menuItemId !== 'cafe-latte-flavored' || at < 0 || product.options.includes(VANILLA)) return product;
+    return { ...product, options: [...product.options.slice(0, at), VANILLA, ...product.options.slice(at)] };
+  });
+  const supersede = new Set();
+  const added = [];
+  for (const recipe of state.recipes) {
+    if (recipe.supersededAt || recipe.savedBy || !recipe.recipeKey.startsWith('latte-flavored-')) continue;
+    const vanilla = recipe.lines.find((entry) => entry.itemId === 'vanilla-syrup' && entry.forOptions?.includes('Vanilla + chocolate drizzle'));
+    if (!vanilla || vanilla.forOptions.includes(VANILLA)) continue;
+    supersede.add(recipe.versionId);
+    added.push({ ...recipe, versionId: `${recipe.recipeKey}-vanilla-v${recipe.version + 1}`, version: recipe.version + 1, versionLabel: VANILLA_LABEL, effectiveFrom: now,
+      changeNote: 'Plain Vanilla (no drizzle) added as a flavor choice.',
+      lines: recipe.lines.map((entry) => entry === vanilla ? { ...entry, forOptions: [VANILLA, ...entry.forOptions] } : entry) });
+  }
+  const recipes = [...state.recipes.map((recipe) => supersede.has(recipe.versionId) ? { ...recipe, supersededAt: now } : recipe), ...added];
+  return { ...state, products, recipes, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), VANILLA_UPDATE] } };
+}
+
+export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate, applyVanillaUpdate].reduce((next, update) => update(next, now), state);

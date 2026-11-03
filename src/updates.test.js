@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { currentRecipe, estimateUsage, inventoryBalances } from './estimates';
+import { EXTRA_SHOT, SOY_MILK, changeChoices, currentRecipe, estimateUsage, inventoryBalances, withChanges } from './estimates';
 import { migrate } from './storage';
-import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
+import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
 
 const fresh = () => migrate(cloneInitialState('2026-10-01T00:00:00.000Z'));
 const product = (state, id) => state.products.find((entry) => entry.id === id);
@@ -119,6 +119,47 @@ describe('monthly special', () => {
     const state = fresh();
     const renamed = { ...state, settings: { ...state.settings, monthlySpecial: 'Peppermint' } };
     expect(migrate(renamed)).toEqual(renamed);
-    expect(renamed.settings.appliedUpdates.slice(-2)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE]);
+    expect(renamed.settings.appliedUpdates.slice(-3)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE]);
+  });
+});
+
+describe('plain vanilla latte', () => {
+  it('is a flavor choice that uses vanilla syrup and no drizzle', () => {
+    const state = fresh();
+    expect(product(state, 'latte-flavored-iced').options.slice(0, 3)).toEqual(['Chocolate', 'Vanilla', 'Vanilla + chocolate drizzle']);
+    const vanilla = used(estimateUsage(recipeFor(state, 'latte-flavored-hot'), state.inventory, 'Vanilla'));
+    expect(vanilla['Vanilla Syrup']).toBe('0.75 oz');
+    expect(vanilla['Dark Ch Drizzle']).toBeUndefined();
+    expect(vanilla['Caramel Drizzle']).toBeUndefined();
+    expect(vanilla.Whip).toBe('0.352 oz');
+  });
+
+  it('leaves a recipe staff saved themselves alone', () => {
+    const state = fresh();
+    const before = { ...state, settings: { ...state.settings, appliedUpdates: state.settings.appliedUpdates.filter((id) => id !== VANILLA_UPDATE) },
+      recipes: state.recipes.map((recipe) => recipe.recipeKey === 'latte-flavored-hot' && !recipe.supersededAt ? { ...recipe, savedBy: 'Jen', lines: recipe.lines.map((entry) => entry.itemId === 'vanilla-syrup' ? { ...entry, forOptions: entry.forOptions.filter((option) => option !== 'Vanilla') } : entry) } : recipe) };
+    const after = migrate(before);
+    expect(recipeFor(after, 'latte-flavored-hot').savedBy).toBe('Jen');
+    expect(after.settings.appliedUpdates).toContain(VANILLA_UPDATE);
+  });
+});
+
+describe('drink changes', () => {
+  it('offers toppings to leave off, an extra shot and soy milk', () => {
+    const state = fresh();
+    expect(changeChoices(recipeFor(state, 'panther-paw-hot'), null, state.inventory)).toEqual(['No whipped cream', 'No caramel drizzle', EXTRA_SHOT, SOY_MILK]);
+    expect(changeChoices(recipeFor(state, 'latte-flavored-hot'), 'Caramel', state.inventory)).toContain('No caramel drizzle');
+    expect(changeChoices(recipeFor(state, 'latte-plain-hot'), 'Whipped topping', state.inventory, { toppings: false })).toEqual([EXTRA_SHOT, SOY_MILK]);
+    expect(changeChoices(recipeFor(state, 'black-coffee-hot'), null, state.inventory)).toEqual([]);
+  });
+
+  it('adjusts the inventory estimate', () => {
+    const state = fresh();
+    const recipe = withChanges(recipeFor(state, 'panther-paw-hot'), ['No whipped cream', EXTRA_SHOT, SOY_MILK]);
+    const usage = used(estimateUsage(recipe, state.inventory, null));
+    expect(usage.Whip).toBeUndefined();
+    expect(usage['Coffee Reg']).toBe('1.47 oz');
+    expect(usage['Soy Milk']).toBe('6.9 oz');
+    expect(usage['Whole Milk']).toBeUndefined();
   });
 });
