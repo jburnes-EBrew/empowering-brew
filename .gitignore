@@ -4,3 +4,5 @@ output/
 .DS_Store
 # Source workbooks, recipe PDF and photos stay on this computer, not on GitHub.
 Inputs/
+# Printable staff guides (PDF) are kept on this computer.
+Guides/
