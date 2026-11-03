@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
 import { saveState, hashPin, uid } from './storage';
-import { changeChoices, currentRecipe, estimateUsage, withChanges } from './estimates';
+import { changeChoices, currentRecipe, estimateUsage, latteAdditions, withChanges } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SPECIAL_MENU_ID } from './data';
 import { Brand, Credit, LogoFull, Modal, menuItemFor, oneLine, prettyTemperature, productLabel, productName, specialName, todayLabel } from './ui';
@@ -100,7 +100,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     const madeDecaf = decaf && isDrink(product);
     const free = studentDrink && isDrink(product);
     const special = product.menuItemId === SPECIAL_MENU_ID ? specialName(state) : '';
-    const baseEstimate = estimateUsage(withChanges(recipe, changes), state.inventory, option);
+    const baseEstimate = estimateUsage(withChanges(recipe, changes, additionsFor(product)), state.inventory, option);
     const estimate = madeDecaf ? decafEstimate(baseEstimate, state.inventory) : baseEstimate;
     const sale = {
       id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
@@ -115,16 +115,14 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     setMessage(`${[productLabel(state, product), option, ...changes, madeDecaf && 'Decaf', free && 'Student drink ($0)'].filter(Boolean).join(' · ')} recorded`);
   };
 
-  // Drinks open a picker for flavor and changes; a drink with neither records in one tap.
-  const pickerFor = (product) => {
+  // Every drink opens a picker for flavor and changes; food records in one tap.
+  const additionsFor = (product) => latteAdditions(currentRecipe(state.recipes, `latte-flavored-${product.temperature === 'iced' ? 'iced' : 'hot'}`));
+  const selectProduct = (product) => {
+    if (!isDrink(product)) return recordSale(product);
     const recipe = currentRecipe(state.recipes, product.recipeKey);
     const toppings = !product.options?.includes('No topping'); // plain lattes choose toppings as their option
-    return { product, recipe, choices: (option) => changeChoices(recipe, option, state.inventory, { toppings }) };
-  };
-  const selectProduct = (product) => {
-    const picker = pickerFor(product);
-    if (product.options?.length || picker.choices(null).length) setOptionProduct(picker);
-    else recordSale(product);
+    const additions = additionsFor(product);
+    setOptionProduct({ product, choices: (option) => changeChoices(recipe, option, state.inventory, { toppings, additions }) });
   };
 
   // Undo only reaches the sale just recorded on this screen, and keeps it in the log as voided.
@@ -200,20 +198,23 @@ function ProductButton({ name, special = false, product, onSelect }) {
 function DrinkPicker({ title, options, choices, onClose, onRecord }) {
   const [option, setOption] = useState(null);
   const [changes, setChanges] = useState([]);
-  const available = choices(option);
-  const picked = changes.filter((change) => available.includes(change));
+  const { remove, add } = choices(option);
+  const picked = changes.filter((change) => remove.includes(change) || add.includes(change));
   const needsOption = options.length > 0 && !option;
   const toggle = (change) => setChanges((current) => current.includes(change) ? current.filter((entry) => entry !== change) : [...current, change]);
-  return <Modal title={title} onClose={onClose}>
+  const chips = (list) => <div className="change-grid">{list.map((change) => <button key={change} className={picked.includes(change) ? 'selected' : ''} aria-pressed={picked.includes(change)} onClick={() => toggle(change)}>{picked.includes(change) ? '✓ ' : ''}{change}</button>)}</div>;
+  const recordLabel = needsOption ? 'Choose a flavor first' : picked.length ? `Record drink with ${picked.length} ${picked.length === 1 ? 'change' : 'changes'}` : 'No changes — record drink';
+  const record = <button className={`button primary full-button record-button ${picked.length ? '' : 'no-changes'}`} disabled={needsOption} onClick={() => onRecord(option, picked)}>{recordLabel}</button>;
+  return <Modal title={title} onClose={onClose} wide>
     {options.length > 0 && <>
       <h3 className="picker-heading">1. Choose the flavor</h3>
-      <div className="flavor-grid">{options.map((entry) => <button key={entry} className={option === entry ? 'selected' : ''} aria-pressed={option === entry} onClick={() => setOption(entry)}>{entry}</button>)}</div>
+      <div className="flavor-grid flavor-grid-wide">{options.map((entry) => <button key={entry} className={option === entry ? 'selected' : ''} aria-pressed={option === entry} onClick={() => setOption(entry)}>{entry}</button>)}</div>
     </>}
-    {available.length > 0 && <>
-      <h3 className="picker-heading">{options.length ? '2. Any changes?' : 'Any changes?'} <small>Skip if none</small></h3>
-      <div className="change-grid">{available.map((change) => <button key={change} className={picked.includes(change) ? 'selected' : ''} aria-pressed={picked.includes(change)} onClick={() => toggle(change)}>{picked.includes(change) ? '✓ ' : ''}{change}</button>)}</div>
-    </>}
-    <button className="button primary full-button record-button" disabled={needsOption} onClick={() => onRecord(option, picked)}>{needsOption ? 'Choose a flavor first' : picked.length ? `Record with ${picked.length} ${picked.length === 1 ? 'change' : 'changes'}` : 'Record drink'}</button>
+    {record}
+    {picked.length > 0 && <p className="picked-changes" role="status">{picked.join(' · ')}</p>}
+    {remove.length > 0 && <><h3 className="picker-heading">Take off</h3>{chips(remove)}</>}
+    {add.length > 0 && <><h3 className="picker-heading">Add or swap</h3>{chips(add)}</>}
+    {picked.length > 0 && record}
     <button className="button secondary full-button" onClick={onClose}>Cancel</button>
   </Modal>;
 }

@@ -27,16 +27,29 @@ const noLabel = (entry) => `No ${entry.label.toLowerCase()}`;
 const SOY_ITEM = 'soy-milk';
 const isShot = (entry) => entry.role === 'espresso' && entry.unit === 'shot'; // brewed coffee grounds share the role
 
-export function changeChoices(recipe, option, inventory, { toppings = true } = {}) {
-  if (!recipe) return [];
-  const lines = recipe.lines.filter((entry) => !entry.excluded && lineApplies(entry, option));
-  const choices = toppings ? lines.filter((entry) => entry.role === 'topping').map(noLabel) : [];
-  if (lines.some(isShot)) choices.push(EXTRA_SHOT);
-  if (lines.some((entry) => entry.role === 'milk' && entry.itemId !== SOY_ITEM) && inventory.some((item) => item.id === SOY_ITEM && item.active)) choices.push(SOY_MILK);
-  return [...new Set(choices)];
+// Additions match the flavored latte: each flavor's syrup and each topping, copied from
+// that recipe so staff edits to pumps and amounts carry over.
+export function latteAdditions(latte) {
+  if (!latte) return [];
+  const lines = latte.lines.filter((entry) => !entry.excluded && (entry.role === 'syrup' || entry.role === 'topping'));
+  const additions = [...lines.filter((entry) => entry.role === 'syrup'), ...lines.filter((entry) => entry.role === 'topping')].map((entry) => {
+    const name = (entry.role === 'syrup' && entry.forOptions?.length ? entry.forOptions[0].replace(/ \+ .*$/, '') : entry.label).toLowerCase();
+    const { forOptions, ...rest } = entry;
+    return { name: `Add ${name}`, line: { ...rest, id: `add-${entry.id}` } };
+  });
+  return additions.filter((entry, index) => additions.findIndex((other) => other.name === entry.name) === index);
 }
 
-export function withChanges(recipe, changes = []) {
+export function changeChoices(recipe, option, inventory, { toppings = true, additions = [] } = {}) {
+  const lines = recipe ? recipe.lines.filter((entry) => !entry.excluded && lineApplies(entry, option)) : [];
+  const has = (line) => lines.some((entry) => line.itemId ? entry.itemId === line.itemId : entry.label === line.label);
+  const remove = toppings ? lines.filter((entry) => entry.role === 'topping').map(noLabel) : [];
+  const add = additions.filter((entry) => (toppings || entry.line.role !== 'topping') && !has(entry.line)).map((entry) => entry.name);
+  if (lines.some(isShot)) add.push(EXTRA_SHOT);
+  if (lines.some((entry) => entry.role === 'milk' && entry.itemId !== SOY_ITEM) && inventory.some((item) => item.id === SOY_ITEM && item.active)) add.push(SOY_MILK);
+  return { remove: [...new Set(remove)], add: [...new Set(add)] };
+}
+export function withChanges(recipe, changes = [], additions = []) {
   if (!recipe || !changes.length) return recipe;
   const lines = recipe.lines.filter((entry) => !(entry.role === 'topping' && changes.includes(noLabel(entry)))).map((entry) => {
     if (isShot(entry) && changes.includes(EXTRA_SHOT) && entry.amount) {
@@ -45,7 +58,8 @@ export function withChanges(recipe, changes = []) {
     if (entry.role === 'milk' && changes.includes(SOY_MILK)) return { ...entry, itemId: SOY_ITEM, itemConfirmed: true };
     return entry;
   });
-  return { ...recipe, lines };
+  const added = additions.filter((entry) => changes.includes(entry.name)).map((entry) => entry.line);
+  return { ...recipe, lines: [...lines, ...added] };
 }
 
 // Recipe units converted to ounces with a per-item setting before counting against inventory.

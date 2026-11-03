@@ -120,9 +120,14 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .flavor-grid button.selected, .change-grid button.selected { border-color: var(--accent); background: var(--iced-soft); color: var(--headers); box-shadow: inset 0 0 0 1px var(--accent); }
 .picker-heading { margin: 0 0 10px; font-size: 1.05rem; }
 .picker-heading small { margin-left: 8px; color: var(--muted); font-weight: 600; font-size: .85rem; }
-.change-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+.change-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
 .change-grid button { min-height: 52px; border: 2px solid var(--line); border-radius: 12px; background: white; color: var(--espresso); font-weight: 750; cursor: pointer; }
-.record-button { min-height: 60px; font-size: 1.15rem; margin-bottom: 10px; }
+.record-button { min-height: 68px; font-size: 1.3rem; margin-bottom: 14px; }
+.record-button.no-changes:not(:disabled) { background: #3f6e2c; }
+.flavor-grid-wide { grid-template-columns: repeat(3, 1fr); }
+.picked-changes { margin: -4px 0 14px; color: var(--headers); font-weight: 750; text-align: center; }
+.practice-panel { border-left-color: var(--danger); }
+@media (max-width: 640px) { .change-grid, .flavor-grid-wide { grid-template-columns: repeat(2, 1fr); } }
 .full-button { width: 100%; }
 .button { min-height: 48px; border-radius: 11px; border: 2px solid transparent; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 800; cursor: pointer; }
 .button.primary { background: var(--accent); color: white; }

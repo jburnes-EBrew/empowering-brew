@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
 import { hashPin, storageStatus, uid } from './storage';
-import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
+import { clearPractice, dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
 import { ESTIMATE_LABELS, MEASURES, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
@@ -612,6 +612,7 @@ function ReportsTab({ state, setState, staffName }) {
   return <>
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
+    <PracticePanel state={state} setState={setState} />
     <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Free student drinks</span><strong>{report.sales.filter((sale) => sale.studentDrink).length}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
@@ -725,6 +726,25 @@ function PinPanel({ state, setState, staffName }) {
     </div>
     <div className="backup-actions"><button className="button secondary" onClick={() => { setMessage(''); setOpen(true); }}>Change PIN</button></div>
     {open && <ChangePinModal pinHash={state.staffPinHash} onSave={save} onClose={() => setOpen(false)} />}
+  </section>;
+}
+
+// Before going live: wipe practice sales, inventory events and counts, keeping the setup.
+function PracticePanel({ state, setState }) {
+  const [message, setMessage] = useState('');
+  const events = state.inventoryEvents.filter((event) => event.type !== 'opening').length;
+  const clear = () => {
+    if (!window.confirm(`Erase all ${state.sales.length} sales, ${events} inventory events and ${state.countSessions.length} counts on this iPad? Menu, prices, recipes, inventory items and units, the PIN and settings are kept. This cannot be undone, so save a Full backup first if you might want them.`)) return;
+    setState(clearPractice);
+    setMessage('Practice data cleared. Do your starting inventory count next.');
+  };
+  return <section className="backup-panel practice-panel">
+    <div>
+      <h3>Clear practice data</h3>
+      <p>For testing before going live. Erases sales, inventory events (restocks, waste, remakes) and counts. Keeps menu, prices, recipes, inventory items and units, the PIN and settings.</p>
+      {message && <p className="backup-message" role="status">{message}</p>}
+    </div>
+    <div className="backup-actions"><button className="button secondary" onClick={clear} disabled={!state.sales.length && !events && !state.countSessions.length}>Clear practice data</button></div>
   </section>;
 }
 

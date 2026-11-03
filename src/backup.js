@@ -68,3 +68,10 @@ export async function saveFile(filename, text, type) {
   setTimeout(() => URL.revokeObjectURL(link.href), 1000);
   return true;
 }
+
+// Practice days before going live: erase sales, inventory events and counts, but keep the
+// setup (menu, prices, recipes, inventory items and units, PIN, settings) and the opening balances.
+export function clearPractice(state) {
+  const { lastSalesBackupAt, ...settings } = state.settings || {};
+  return { ...state, sales: [], countSessions: [], inventoryEvents: state.inventoryEvents.filter((event) => event.type === 'opening'), settings };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { EXTRA_SHOT, SOY_MILK, changeChoices, currentRecipe, estimateUsage, inventoryBalances, withChanges } from './estimates';
+import { EXTRA_SHOT, SOY_MILK, changeChoices, latteAdditions, currentRecipe, estimateUsage, inventoryBalances, withChanges } from './estimates';
 import { migrate } from './storage';
 import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
 
@@ -145,12 +145,27 @@ describe('plain vanilla latte', () => {
 });
 
 describe('drink changes', () => {
-  it('offers toppings to leave off, an extra shot and soy milk', () => {
+  it('offers toppings to take off, latte additions, an extra shot and soy milk', () => {
     const state = fresh();
-    expect(changeChoices(recipeFor(state, 'panther-paw-hot'), null, state.inventory)).toEqual(['No whipped cream', 'No caramel drizzle', EXTRA_SHOT, SOY_MILK]);
-    expect(changeChoices(recipeFor(state, 'latte-flavored-hot'), 'Caramel', state.inventory)).toContain('No caramel drizzle');
-    expect(changeChoices(recipeFor(state, 'latte-plain-hot'), 'Whipped topping', state.inventory, { toppings: false })).toEqual([EXTRA_SHOT, SOY_MILK]);
-    expect(changeChoices(recipeFor(state, 'black-coffee-hot'), null, state.inventory)).toEqual([]);
+    const additions = latteAdditions(recipeFor(state, 'latte-flavored-hot'));
+    expect(additions.map((entry) => entry.name)).toEqual(['Add chocolate', 'Add vanilla', 'Add cookie', 'Add caramel', 'Add cinnamon sugar', 'Add sugar-free chocolate', 'Add sugar-free vanilla', 'Add whipped topping', 'Add chocolate drizzle', 'Add caramel drizzle']);
+    const paw = changeChoices(recipeFor(state, 'panther-paw-hot'), null, state.inventory, { additions });
+    expect(paw.remove).toEqual(['No whipped cream', 'No caramel drizzle']);
+    expect(paw.add).toEqual(['Add chocolate', 'Add cookie', 'Add cinnamon sugar', 'Add sugar-free chocolate', 'Add sugar-free vanilla', 'Add chocolate drizzle', EXTRA_SHOT, SOY_MILK]);
+    const caramel = changeChoices(recipeFor(state, 'latte-flavored-hot'), 'Caramel', state.inventory, { additions });
+    expect(caramel.remove).toContain('No caramel drizzle');
+    expect(caramel.add).not.toContain('Add caramel');
+    const plain = changeChoices(recipeFor(state, 'latte-plain-hot'), 'Whipped topping', state.inventory, { toppings: false, additions });
+    expect(plain.remove).toEqual([]);
+    expect(plain.add).not.toContain('Add whipped topping');
+    expect(changeChoices(recipeFor(state, 'black-coffee-hot'), null, state.inventory, { additions }).add).toEqual(additions.map((entry) => entry.name));
+  });
+
+  it('adds the latte amount for an addition', () => {
+    const state = fresh();
+    const additions = latteAdditions(recipeFor(state, 'latte-flavored-hot'));
+    const usage = estimateUsage(withChanges(recipeFor(state, 'black-coffee-hot'), ['Add vanilla', 'Add whipped topping'], additions), state.inventory, null).usage;
+    expect(usage.map((use) => use.itemId)).toEqual(expect.arrayContaining(['vanilla-syrup', 'whip']));
   });
 
   it('adjusts the inventory estimate', () => {
