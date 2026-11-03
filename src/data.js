@@ -116,6 +116,10 @@ export const seedRecipes = [
   recipe('cookie-mocha-iced', 'Pinckney Panther Cookie Mocha', 'iced', 10, COOKIE, ['Whipped cream', 'Cookie crumbs']),
 ];
 
+// Shop hours: 10 AM–2 PM on Monday, Tuesday, Thursday and Friday (days are Monday-first).
+// Busy times always shows these rows and columns, even before anything sells.
+export const SHOP_HOURS = { days: [0, 1, 3, 4], openMinutes: 10 * 60, closeMinutes: 14 * 60 };
+
 // The monthly special has its own sales button, named after this month's flavor
 // (settings.monthlySpecial). Sales keep the flavor's name that month (sale.special).
 // It was first a flavored-latte choice; sales from then have option "Monthly Special".

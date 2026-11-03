@@ -105,4 +105,14 @@ describe('busy times', () => {
     expect(result.busiest).toEqual({ startMinutes: 450, day: 0, count: 2 });
     expect(busyTimes([]).slots).toEqual([]);
   });
+
+  it('lists every open-hours slot and keeps sales outside them', () => {
+    const hours = { days: [0, 1, 3, 4], openMinutes: 600, closeMinutes: 840 };
+    const at = (iso) => ({ soldAt: new Date(iso).toISOString() });
+    const labels = (result) => result.slots.map((slot) => clockLabel(slot.startMinutes));
+    expect(labels(busyTimes([at('2026-11-02T11:10:00')], 60, hours))).toEqual(['10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM']);
+    const late = busyTimes([at('2026-11-02T11:10:00'), at('2026-11-02T14:20:00')], 30, hours);
+    expect(labels(late)[0]).toBe('10:00 AM');
+    expect(labels(late).at(-1)).toBe('2:00 PM');
+  });
 });

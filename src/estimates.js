@@ -121,7 +121,8 @@ export function weeklyReport(state, startDate) {
 
 // Busy times: sales counted per weekday and time slot (local time on this iPad),
 // for planning staffing and prep. Only the slots between the first and last sale are shown.
-export function busyTimes(sales, slotMinutes = 30) {
+// With hours, every slot from opening to closing is listed; sales outside hours still add rows.
+export function busyTimes(sales, slotMinutes = 30, hours = null) {
   const counted = sales.filter((sale) => !sale.voidedAt);
   const slotOf = (date) => Math.floor((date.getHours() * 60 + date.getMinutes()) / slotMinutes);
   const cells = new Map();
@@ -132,6 +133,7 @@ export function busyTimes(sales, slotMinutes = 30) {
   }
   if (!cells.size) return { slots: [], max: 0, busiest: null, total: 0 };
   const slotNumbers = [...cells.keys()].map((key) => Number(key.split('|')[0]));
+  if (hours) slotNumbers.push(Math.floor(hours.openMinutes / slotMinutes), Math.ceil(hours.closeMinutes / slotMinutes) - 1);
   const slots = [];
   for (let slot = Math.min(...slotNumbers); slot <= Math.max(...slotNumbers); slot += 1) {
     const days = Array.from({ length: 7 }, (_, day) => cells.get(`${slot}|${day}`) || 0);

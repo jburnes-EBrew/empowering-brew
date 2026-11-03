@@ -312,3 +312,4 @@ These were added as a second one-time update ("Owner answers (Oct 2026)" recipe 
 
 - Each sale has always saved the exact time it was rung up (`soldAt`, in the sales CSV's Date and Time columns).
 - Staff → Reports → Busy times shows sales by weekday and half hour (or hour) for this week, last week (calendar weeks, Monday to Sunday) or all weeks, with the busiest slot called out, to help plan staffing and prep. Undone sales are not counted. Times are this iPad's local time.
+- Shop hours are 10 AM–2 PM on Monday, Tuesday, Thursday and Friday (`SHOP_HOURS` in src/data.js). Busy times always lists those days and every slot from 10:00 to 1:30, even when empty, so slow times show as blanks. A sale outside hours (for example a Wednesday event) still adds its own row or day column.
