@@ -601,7 +601,7 @@ function ReportsTab({ state, setState }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
   const report = useMemo(() => weeklyReport(state, start), [state, start]);
   const shift = (weeks) => setStart((current) => { const next = new Date(current); next.setDate(next.getDate() + weeks * 7); return next; });
-  const showDays = WEEKDAYS.map((_, index) => index < 5 || report.rows.some((row) => row.days[index] > 0));
+  const showDays = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index) || report.rows.some((row) => row.days[index] > 0));
   const dates = WEEKDAYS.map((_, index) => { const date = new Date(report.start); date.setDate(date.getDate() + index); return date; });
   const totals = WEEKDAYS.map((_, index) => report.rows.reduce((sum, row) => sum + row.days[index], 0));
   const revenue = report.sales.reduce((sum, sale) => sum + (sale.price || 0), 0);
