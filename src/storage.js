@@ -19,7 +19,7 @@ function migrateSchema(saved) {
     menuItems: saved.menuItems.map((item) => item.reviewNote === OLD_FLAVOR_NOTE ? { ...item, reviewNote: FLAVOR_NOTE } : item),
     products: saved.products.map((product) => DISMISSED_NAME_NOTES.has(product.reviewNote) ? { ...product, reviewNote: '' } : product),
     recipes: saved.recipes.map((recipe) => recipe.versionLabel === 'Placeholder v1' ? { ...recipe, versionLabel: SEED_VERSION_LABEL } : recipe),
-    settings: { backupTime: '15:00', lastSalesBackupAt: null, ...saved.settings },
+    settings: { backupTime: '14:15', lastSalesBackupAt: null, ...saved.settings },
   };
   if (saved?.schemaVersion !== 2) return cloneInitialState();
   // The opening balance must predate everything already recorded.

@@ -370,7 +370,12 @@ function RecipeEditor({ state, recipe, options = [], onSave, onClose }) {
 /* ---------- Inventory ---------- */
 
 const EVENT_LABELS = { opening: 'Opening balance', count: 'Physical count reconciled', restock: 'Restock', waste: 'Waste', spill: 'Spill', adjustment: 'Adjustment', remake: 'Drink remake', 'drink-waste': 'Drink wasted' };
-const COUNT_REASONS = ['Matches estimate', 'Unrecorded waste or spill', 'Unrecorded restock', 'Recipe estimate differs from actual use', 'Earlier count was wrong', 'Other'];
+// Reasons are optional notes on why a count differs from the estimate. Each one starts
+// filled in, so a reviewer only changes the ones they know more about.
+const FIRST_COUNT = 'Starting count';
+const NO_REASON = 'Use the count (no reason)';
+const COUNT_REASONS = ['Matches estimate', FIRST_COUNT, NO_REASON, 'Unrecorded waste or spill', 'Unrecorded restock', 'Recipe estimate differs from actual use', 'Earlier count was wrong', 'Other'];
+const defaultReason = (balance, difference) => !balance.lastCountAt ? FIRST_COUNT : difference === 0 ? COUNT_REASONS[0] : NO_REASON;
 const unitLabel = (item) => item.countUnit || 'source unit';
 
 function InventoryTab({ state, setState, staffName, onStartCount }) {
@@ -561,10 +566,9 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
     const item = state.inventory.find((entry) => entry.id === itemId);
     return item && { item, counted, estimated: balances[itemId].estimate, difference: Math.round((counted - balances[itemId].estimate) * 1000) / 1000 };
   }).filter(Boolean);
-  const [decisions, setDecisions] = useState(() => Object.fromEntries(rows.map((row) => [row.item.id, { include: true, reason: row.difference === 0 ? COUNT_REASONS[0] : '' }])));
+  const [decisions, setDecisions] = useState(() => Object.fromEntries(rows.map((row) => [row.item.id, { include: true, reason: defaultReason(balances[row.item.id], row.difference) }])));
   const [note, setNote] = useState('');
   const set = (id, patch) => setDecisions((current) => ({ ...current, [id]: { ...current[id], ...patch } }));
-  const missingReason = rows.some((row) => decisions[row.item.id].include && !decisions[row.item.id].reason);
   const finalize = () => {
     const at = new Date().toISOString();
     onFinish(rows.filter((row) => decisions[row.item.id].include).map((row) => ({
@@ -573,7 +577,7 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
     })), 'finalized');
   };
   return <Modal title={`Review count from ${session.countedBy || 'a student'}`} onClose={onClose} wide>
-    <p className="field-help">Submitted {timeLabel(session.submittedAt)}. Accepted counts replace the estimated balance, and the difference is saved with your reason. Uncheck any item that should be recounted.</p>
+    <p className="field-help">Submitted {timeLabel(session.submittedAt)}. Accepted counts replace the estimated balance. A reason is filled in for every item; change one only if you know why a count is off (for example, an unrecorded restock). Items never counted before are marked Starting count. Uncheck any item that should be recounted.</p>
     <div className="review-table">
       <div className="review-row review-head"><span>Use</span><span>Item</span><span>Estimated</span><span>Counted</span><span>Difference</span><span>Reason</span></div>
       {rows.map(({ item, counted, estimated, difference }) => <div className="review-row" key={item.id}>
@@ -582,13 +586,12 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
         <span>{formatNumber(estimated)}</span>
         <span><strong>{formatNumber(counted)}</strong></span>
         <span className={difference < 0 ? 'negative' : difference > 0 ? 'positive' : ''}>{difference > 0 ? '+' : ''}{formatNumber(difference)}</span>
-        <span><select value={decisions[item.id].reason} disabled={!decisions[item.id].include} onChange={(event) => set(item.id, { reason: event.target.value })} aria-label={`Reason for ${item.name}`}><option value="">Choose…</option>{COUNT_REASONS.map((reason) => <option key={reason}>{reason}</option>)}</select></span>
+        <span><select value={decisions[item.id].reason} disabled={!decisions[item.id].include} onChange={(event) => set(item.id, { reason: event.target.value })} aria-label={`Reason for ${item.name}`}>{COUNT_REASONS.map((reason) => <option key={reason}>{reason}</option>)}</select></span>
       </div>)}
     </div>
     <div className="stack-form">
       <label>Reviewer note<textarea rows="2" value={note} onChange={(event) => setNote(event.target.value)} /></label>
-      {missingReason && <p className="form-error">Choose a reason for every accepted item.</p>}
-      <div className="form-actions"><button type="button" className="button secondary danger-text" onClick={() => onFinish([], 'discarded')}>Discard count</button><button type="button" className="button secondary" onClick={onClose}>Later</button><button type="button" className="button primary" disabled={missingReason} onClick={finalize}>Finalize accepted counts</button></div>
+      <div className="form-actions"><button type="button" className="button secondary danger-text" onClick={() => onFinish([], 'discarded')}>Discard count</button><button type="button" className="button secondary" onClick={onClose}>Later</button><button type="button" className="button primary" onClick={finalize}>Finalize accepted counts</button></div>
     </div>
   </Modal>;
 }

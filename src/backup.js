@@ -3,7 +3,7 @@ import { ESTIMATE_LABELS } from './estimates';
 import { migrate } from './storage';
 
 const TEMPERATURES = { hot: 'Hot', iced: 'Iced', none: '' };
-export const DEFAULT_BACKUP_TIME = '15:00';
+export const DEFAULT_BACKUP_TIME = '14:15';
 
 export function salesCsvRows(sales) {
   return [
