@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
+import { bakeryReport, busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
 import { migrate } from './storage';
 
 const configured = () => {
@@ -81,6 +81,21 @@ describe('reports and migration', () => {
     const report = weeklyReport(state, new Date('2026-10-28T12:00:00'));
     expect(report.rows.find((row) => row.product.id === 'black-panther-hot').days.slice(0, 2)).toEqual([1, 0]);
     expect(report.rows.find((row) => row.product.id === 'black-panther-iced').days.slice(0, 2)).toEqual([0, 2]);
+  });
+
+  it('adds bakery excess to sold to show how many were made', () => {
+    const state = cloneInitialState();
+    state.sales = [
+      { id: 't1', productId: 'bakery-sweet-treat', menuItemId: 'sweet-treat', soldAt: '2026-10-27T11:00:00', estimateStatus: 'not-configured' },
+      { id: 't2', productId: 'bakery-sweet-treat', menuItemId: 'sweet-treat', soldAt: '2026-10-27T12:00:00', estimateStatus: 'not-configured' },
+      { id: 'd', productId: 'black-panther-hot', menuItemId: 'black-panther', soldAt: '2026-10-27T12:00:00', estimateStatus: 'not-configured' },
+    ];
+    state.inventoryEvents.push({ id: 'x', type: 'bakery-excess', count: 3, forDate: '2026-10-27', at: '2026-10-28T09:00:00.000Z' });
+    state.inventoryEvents.push({ id: 'y', type: 'bakery-excess', count: 5, forDate: '2026-11-03', at: '2026-11-03T15:00:00.000Z' });
+    const bakery = bakeryReport(state, weeklyReport(state, new Date('2026-10-28T12:00:00')));
+    expect(bakery.sold[1]).toBe(2);
+    expect(bakery.excess).toEqual([0, 3, 0, 0, 0, 0, 0]);
+    expect(bakery.made[1]).toBe(5);
   });
 
   it('leaves out sales on closed days', () => {

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
+import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, MinusIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
 import { hashPin, storageStatus, uid } from './storage';
 import { clearPractice, dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
-import { ESTIMATE_LABELS, MEASURES, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { ESTIMATE_LABELS, MEASURES, bakeryReport, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
@@ -369,7 +369,7 @@ function RecipeEditor({ state, recipe, options = [], onSave, onClose }) {
 
 /* ---------- Inventory ---------- */
 
-const EVENT_LABELS = { opening: 'Opening balance', count: 'Physical count reconciled', restock: 'Restock', waste: 'Waste', spill: 'Spill', adjustment: 'Adjustment', remake: 'Drink remake', 'drink-waste': 'Drink wasted' };
+const EVENT_LABELS = { opening: 'Opening balance', count: 'Physical count reconciled', restock: 'Restock', waste: 'Waste', spill: 'Spill', adjustment: 'Adjustment', remake: 'Drink remake', 'drink-waste': 'Drink wasted', 'bakery-excess': 'Excess bakery items (to staff)' };
 // Reasons are optional notes on why a count differs from the estimate. Each one starts
 // filled in, so a reviewer only changes the ones they know more about.
 const FIRST_COUNT = 'Starting count';
@@ -385,6 +385,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
   const unitsReady = state.inventory.filter((item) => item.active && unitsComplete(item, measuredUnits(state))).length;
   const activeItems = state.inventory.filter((item) => item.active).length;
   const [drinkEvent, setDrinkEvent] = useState(false);
+  const [bakeryEvent, setBakeryEvent] = useState(false);
   const [reviewing, setReviewing] = useState(null);
   const balances = useMemo(() => inventoryBalances(state), [state]);
   const pending = state.countSessions.filter((session) => session.status === 'pending');
@@ -405,6 +406,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
   return <>
     <SectionHeading title="Inventory" description="Estimated balances = last physical count + restocks − waste − estimated recipe usage. Counts change balances only after staff review." action={<>
       <button className="button secondary" onClick={() => setDrinkEvent(true)}>Drink remake / waste</button>
+      <button className="button secondary" onClick={() => setBakeryEvent(true)}>Excess bakery items</button>
       <button className="button secondary" onClick={() => setEditingItem({ id: uid('item'), name: '', sourceName: '', category: INVENTORY_CATEGORIES[0], full: 0, onHand: 0, need: 0, countUnit: '', usageUnit: '', usagePerCount: null, ozPerPump: null, active: true, note: '' })}><PlusIcon size={20} /> Add item</button>
       <button className="button primary" onClick={onStartCount}><ClipboardIcon size={20} /> Start count</button>
     </>} />
@@ -437,6 +439,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
     {eventItem && <InventoryEventEditor item={eventItem} onClose={() => setEventItem(null)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setEventItem(null); }} />}
     {unitsOpen && <UnitsSetup state={state} onClose={() => setUnitsOpen(false)} onSave={(updates) => { setState((current) => ({ ...current, inventory: current.inventory.map((item) => updates[item.id] ? { ...item, ...updates[item.id] } : item) })); setUnitsOpen(false); }} />}
     {editingItem && <ItemEditor item={editingItem} isNew={!state.inventory.some((entry) => entry.id === editingItem.id)} onSave={saveItem} onClose={() => setEditingItem(null)} />}
+    {bakeryEvent && <BakeryExcessEditor onClose={() => setBakeryEvent(false)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setBakeryEvent(false); }} />}
     {drinkEvent && <DrinkEventEditor state={state} onClose={() => setDrinkEvent(false)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setDrinkEvent(false); }} />}
     {reviewing && <CountReview state={state} session={reviewing} balances={balances} staffName={staffName} onClose={() => setReviewing(null)} onFinish={(events, status) => {
       const now = new Date().toISOString();
@@ -537,6 +540,31 @@ function InventoryEventEditor({ item, onClose, onSave }) {
   </Modal>;
 }
 
+// Unsold bakery items moved to the staff offer, so they are no longer for sale.
+function BakeryExcessEditor({ onClose, onSave }) {
+  const [count, setCount] = useState('');
+  const [forDate, setForDate] = useState(() => dateStamp());
+  const [note, setNote] = useState('');
+  const valid = Number(count) > 0 && forDate;
+  const submit = (event) => {
+    event.preventDefault();
+    onSave({ id: uid('event'), type: 'bakery-excess', productName: 'Bakery items', count: Number(count), forDate, at: new Date().toISOString(), note });
+  };
+  return <Modal title="Excess bakery items" onClose={onClose}>
+    <form className="stack-form" onSubmit={submit}>
+      <p className="field-help">How many bakery items were left over and moved to the staff offer, so they won't be sold. Reports shows this next to bakery sales to help decide how many to make each day.</p>
+      <label>How many items<div className="stepper">
+        <button type="button" onClick={() => setCount(String(Math.max(0, (Number(count) || 0) - 1)))} aria-label="One less"><MinusIcon size={22} /></button>
+        <input autoFocus inputMode="numeric" type="number" min="0" step="1" value={count} onChange={(event) => setCount(event.target.value)} aria-label="How many items" placeholder="0" />
+        <button type="button" onClick={() => setCount(String((Number(count) || 0) + 1))} aria-label="One more"><PlusIcon size={22} /></button>
+      </div></label>
+      <label>Made on<input type="date" value={forDate} onChange={(event) => setForDate(event.target.value)} /></label>
+      <label>Note (optional)<textarea rows="2" value={note} onChange={(event) => setNote(event.target.value)} placeholder="For example, which items" /></label>
+      <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={!valid}>Record</button></div>
+    </form>
+  </Modal>;
+}
+
 function DrinkEventEditor({ state, onClose, onSave }) {
   const products = state.products.filter((product) => product.active && product.temperature !== 'none');
   const [productId, setProductId] = useState(products[0]?.id || '');
@@ -621,10 +649,27 @@ function ReportsTab({ state, setState, staffName }) {
       <tbody>{report.rows.map((row) => <tr key={row.product.id}><td><span className={`temp-dot ${row.product.temperature}`} />{productLabel(state, row.product)}</td>{row.days.map((count, index) => showDays[index] && <td key={index}>{count || ''}</td>)}<td><strong>{row.total}</strong></td></tr>)}</tbody>
       <tfoot><tr><td>Total</td>{totals.map((count, index) => showDays[index] && <td key={index}>{count}</td>)}<td>{report.sales.length}</td></tr></tfoot>
     </table></div>
+    <BakeryTable state={state} report={report} showDays={showDays} />
     <BusyTimes state={state} />
     <h3 className="subheading">Estimated ingredient usage this week</h3>
     {report.usage.length ? <div className="data-list">{report.usage.map((use) => <div className="data-row simple-row" key={`${use.itemName}-${use.unit}`}><span><strong>{use.itemName}</strong></span><span>{formatNumber(use.quantity)} {use.unit}</span></div>)}</div>
       : <p className="subheading-help">No usage estimated yet. Usage appears once recipes have confirmed inventory items, standard amounts, and measured pump volumes.</p>}
+  </>;
+}
+
+// Bakery made / sold / excess per open day, to settle how many to make.
+function BakeryTable({ state, report, showDays }) {
+  const bakery = useMemo(() => bakeryReport(state, report), [state, report]);
+  const sum = (list) => list.reduce((total, value, index) => total + (showDays[index] ? value : 0), 0);
+  const row = (label, list, strong = false) => <tr><td>{label}</td>{list.map((count, index) => showDays[index] && <td key={index}>{strong ? <strong>{count || ''}</strong> : count || ''}</td>)}<td><strong>{sum(list)}</strong></td></tr>;
+  return <>
+    <h3 className="subheading">Bakery items</h3>
+    <p className="subheading-help">Sold at the register plus excess moved to the staff offer (Inventory → Excess bakery items). Made is the two added together; use it to find the right number to make each day.</p>
+    <div className="table-scroll"><table className="report-table">
+      <thead><tr><th>Bakery</th>{WEEKDAYS.map((day, index) => showDays[index] && <th key={day}>{day}</th>)}<th>Total</th></tr></thead>
+      <tbody>{row('Sold', bakery.sold)}{row('Excess (to staff)', bakery.excess)}</tbody>
+      <tfoot>{row('Made', bakery.made)}</tfoot>
+    </table></div>
   </>;
 }
 
@@ -741,7 +786,7 @@ function PracticePanel({ state, setState }) {
   return <section className="backup-panel practice-panel">
     <div>
       <h3>Clear practice data</h3>
-      <p>For testing before going live. Erases sales, inventory events (restocks, waste, remakes) and counts. Keeps menu, prices, recipes, inventory items and units, the PIN and settings.</p>
+      <p>For testing before going live. Erases sales, inventory events (restocks, waste, remakes, excess bakery items) and counts. Keeps menu, prices, recipes, inventory items and units, the PIN and settings.</p>
       {message && <p className="backup-message" role="status">{message}</p>}
     </div>
     <div className="backup-actions"><button className="button secondary" onClick={clear} disabled={!state.sales.length && !events && !state.countSessions.length}>Clear practice data</button></div>
@@ -789,7 +834,7 @@ function HistoryTab({ state }) {
   const [limit, setLimit] = useState(150);
   const records = useMemo(() => [
     ...state.sales.map((sale) => ({ kind: 'Sale', time: sale.soldAt, title: `${sale.productName}${sale.temperature === 'none' ? '' : ` · ${prettyTemperature(sale.temperature)}`}${sale.option ? ` · ${optionLabel(sale.option, sale.special)}` : ''}${sale.changes?.length ? ` · ${sale.changes.join(', ')}` : ''}${sale.decaf ? ' · Decaf' : ''}${sale.studentDrink ? ' · Student drink ($0)' : ''}`, detail: `${sale.voidedAt ? 'Undone at the register · ' : ''}${ESTIMATE_LABELS[sale.estimateStatus] || 'Not configured'}${sale.recipeVersionId ? ` · recipe ${sale.recipeVersionId}` : ''}${sale.usage?.length ? ` · ${sale.usage.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', ')}` : ''}`, voided: !!sale.voidedAt })),
-    ...state.inventoryEvents.filter((event) => event.type !== 'opening').map((event) => ({ kind: 'Inventory', time: event.at, title: `${event.itemName || event.productName} · ${EVENT_LABELS[event.type] || event.type}`, detail: [event.type === 'count' ? `Estimated ${formatNumber(event.estimatedBefore)}, counted ${formatNumber(event.countedValue)} (${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)})` : typeof event.quantity === 'number' ? `${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)}` : event.usage?.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', '), event.reason, event.note, event.countedBy && `counted by ${event.countedBy}`, event.by && `by ${event.by}`].filter(Boolean).join(' · ') })),
+    ...state.inventoryEvents.filter((event) => event.type !== 'opening').map((event) => ({ kind: 'Inventory', time: event.at, title: `${event.itemName || event.productName} · ${EVENT_LABELS[event.type] || event.type}`, detail: [event.type === 'bakery-excess' ? `${event.count} ${event.count === 1 ? 'item' : 'items'} made ${dayLabel(new Date(`${event.forDate}T12:00:00`))}` : event.type === 'count' ? `Estimated ${formatNumber(event.estimatedBefore)}, counted ${formatNumber(event.countedValue)} (${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)})` : typeof event.quantity === 'number' ? `${event.quantity > 0 ? '+' : ''}${formatNumber(event.quantity)}` : event.usage?.map((use) => `${use.quantity} ${use.unit} ${use.itemName}`).join(', '), event.reason, event.note, event.countedBy && `counted by ${event.countedBy}`, event.by && `by ${event.by}`].filter(Boolean).join(' · ') })),
     ...state.countSessions.map((session) => ({ kind: 'Count', time: session.reviewedAt || session.submittedAt, title: `Physical count · ${session.status}`, detail: `${Object.keys(session.counts).length} items · counted by ${session.countedBy || 'not given'}${session.reviewedBy ? ` · reviewed by ${session.reviewedBy}` : ''}` })),
     ...state.recipes.filter((recipe) => recipe.savedBy).map((recipe) => ({ kind: 'Recipe', time: recipe.effectiveFrom, title: `${recipe.name} · ${prettyTemperature(recipe.temperature)} · ${recipe.versionLabel}`, detail: `${recipe.changeNote} · by ${recipe.savedBy}` })),
   ].sort((a, b) => b.time.localeCompare(a.time)), [state]);

@@ -168,6 +168,23 @@ export function weeklyReport(state, startDate) {
   return { start, end, sales, rows, usage: Object.values(usage).sort((a, b) => a.itemName.localeCompare(b.itemName)), withoutFullEstimate: sales.filter((sale) => sale.estimateStatus !== 'complete').length };
 }
 
+// Bakery treats are made daily; unsold ones go to staff and are recorded as excess
+// (a 'bakery-excess' event with a count and the day it was for). Made = sold + excess.
+export function bakeryReport(state, report) {
+  const food = new Set(state.menuItems.filter((entry) => entry.kind === 'food').map((entry) => entry.id));
+  const dayOf = (date) => Math.round((date - report.start) / 86400000);
+  const sold = Array(7).fill(0);
+  const excess = Array(7).fill(0);
+  report.sales.filter((sale) => food.has(sale.menuItemId)).forEach((sale) => { sold[(new Date(sale.soldAt).getDay() + 6) % 7] += 1; });
+  for (const event of state.inventoryEvents) {
+    if (event.type !== 'bakery-excess') continue;
+    const [year, month, day] = event.forDate.split('-').map(Number);
+    const index = dayOf(new Date(year, month - 1, day));
+    if (index >= 0 && index < 7) excess[index] += event.count;
+  }
+  return { sold, excess, made: sold.map((count, index) => count + excess[index]) };
+}
+
 // Busy times: sales counted per weekday and time slot (local time on this iPad),
 // for planning staffing and prep. Only the slots between the first and last sale are shown.
 // With hours, every slot from opening to closing is listed; sales outside hours still add rows.
