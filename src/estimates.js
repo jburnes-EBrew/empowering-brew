@@ -1,3 +1,5 @@
+import { SHOP_HOURS } from './data';
+
 const round = (value) => Math.round(value * 1000) / 1000;
 export const formatNumber = (value) => value == null || Number.isNaN(value) ? '—' : String(round(value));
 export const formatRange = (amount, unit) => !amount ? 'Not specified' : `${amount.min === amount.max ? amount.min : `${amount.min}-${amount.max}`}${unit ? ` ${unit}${unit === 'pump' || unit === 'shot' ? (amount.max === 1 ? '' : 's') : ''}` : ''}`;
@@ -139,11 +141,14 @@ export const weekStart = (date) => {
   return start;
 };
 
+// Reports cover open days only; a sale on a closed day (such as a practice day) is left out.
+export const onOpenDay = (sale) => SHOP_HOURS.days.includes((new Date(sale.soldAt).getDay() + 6) % 7);
+
 export function weeklyReport(state, startDate) {
   const start = weekStart(startDate);
   const end = new Date(start);
   end.setDate(end.getDate() + 7);
-  const sales = state.sales.filter((sale) => !sale.voidedAt && new Date(sale.soldAt) >= start && new Date(sale.soldAt) < end);
+  const sales = state.sales.filter((sale) => !sale.voidedAt && onOpenDay(sale) && new Date(sale.soldAt) >= start && new Date(sale.soldAt) < end);
   const dayIndex = (iso) => (new Date(iso).getDay() + 6) % 7;
   const order = Object.fromEntries(state.menuItems.map((entry) => [entry.id, entry.order]));
   const tempOrder = { hot: 0, iced: 1, none: 2 };

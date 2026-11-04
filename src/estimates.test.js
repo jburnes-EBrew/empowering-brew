@@ -83,6 +83,17 @@ describe('reports and migration', () => {
     expect(report.rows.find((row) => row.product.id === 'black-panther-iced').days.slice(0, 2)).toEqual([0, 2]);
   });
 
+  it('leaves out sales on closed days', () => {
+    const state = cloneInitialState();
+    state.sales = [
+      { id: 'a', productId: 'black-panther-hot', soldAt: '2026-10-27T11:00:00', estimateStatus: 'not-configured', price: 3.5 },
+      { id: 'w', productId: 'black-panther-hot', soldAt: '2026-10-28T11:00:00', estimateStatus: 'not-configured', price: 3.5 },
+    ];
+    const report = weeklyReport(state, new Date('2026-10-28T12:00:00'));
+    expect(report.sales.map((sale) => sale.id)).toEqual(['a']);
+    expect(report.rows.find((row) => row.product.id === 'black-panther-hot').days[2]).toBe(0);
+  });
+
   it('carries version 2 sales and PIN forward', () => {
     const next = migrate({ schemaVersion: 2, staffPinHash: 'abc', sales: [{ id: 'x', productId: 'bakery-sweet-treat', temperature: 'other', modifier: null, soldAt: '2026-10-27T12:00:00.000Z' }], inventoryEvents: [{ id: 'e', type: 'reconciliation', itemId: 'ice', quantity: -1, occurredAt: '2026-10-27T13:00:00.000Z', note: 'Physical count 1; prior balance 2' }], countSessions: [] });
     expect(next.schemaVersion).toBe(3);

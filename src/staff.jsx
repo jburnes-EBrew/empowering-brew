@@ -3,7 +3,7 @@ import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, H
 import { hashPin, storageStatus, uid } from './storage';
 import { clearPractice, dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
-import { ESTIMATE_LABELS, MEASURES, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { ESTIMATE_LABELS, MEASURES, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
@@ -604,7 +604,7 @@ function ReportsTab({ state, setState, staffName }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
   const report = useMemo(() => weeklyReport(state, start), [state, start]);
   const shift = (weeks) => setStart((current) => { const next = new Date(current); next.setDate(next.getDate() + weeks * 7); return next; });
-  const showDays = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index) || report.rows.some((row) => row.days[index] > 0));
+  const showDays = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index));
   const dates = WEEKDAYS.map((_, index) => { const date = new Date(report.start); date.setDate(date.getDate() + index); return date; });
   const totals = WEEKDAYS.map((_, index) => report.rows.reduce((sum, row) => sum + row.days[index], 0));
   const revenue = report.sales.reduce((sum, sale) => sum + (sale.price || 0), 0);
@@ -613,7 +613,7 @@ function ReportsTab({ state, setState, staffName }) {
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
     <PracticePanel state={state} setState={setState} />
-    <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
+    <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately. Open days only (Mon, Tue, Thu, Fri); sales on closed days are left out." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Free student drinks</span><strong>{report.sales.filter((sale) => sale.studentDrink).length}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
     <div className="table-scroll"><table className="report-table">
@@ -642,13 +642,13 @@ function BusyTimes({ state }) {
     const end = new Date(start); end.setDate(end.getDate() + 7);
     return state.sales.filter((sale) => new Date(sale.soldAt) >= start && new Date(sale.soldAt) < end);
   }, [state.sales, start]);
-  const busy = useMemo(() => busyTimes(sales.filter((sale) => !sale.studentDrink), slotMinutes, SHOP_HOURS), [sales, slotMinutes]);
-  const days = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index) || busy.slots.some((slot) => slot.days[index] > 0));
+  const busy = useMemo(() => busyTimes(sales.filter((sale) => !sale.studentDrink && onOpenDay(sale)), slotMinutes, SHOP_HOURS), [sales, slotMinutes]);
+  const days = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index));
   const shade = (count) => count ? { background: `rgba(4, 107, 177, ${0.12 + 0.78 * count / busy.max})`, color: count / busy.max > 0.5 ? 'white' : undefined } : undefined;
   const chip = (on, label, onClick) => <button type="button" className={`chip ${on ? 'selected' : ''}`} aria-pressed={on} onClick={onClick}>{label}</button>;
   return <>
     <h3 className="subheading">Busy times</h3>
-    <p className="subheading-help">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}, by the time they were rung up. Darker squares are busier; use them to plan who works when and when to prep. Free student drinks are left out. Shows open hours (10 AM–2 PM, Mon, Tue, Thu, Fri); a sale outside them adds its own row or day.</p>
+    <p className="subheading-help">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}, by the time they were rung up. Darker squares are busier; use them to plan who works when and when to prep. Free student drinks are left out. Shows open hours (10 AM–2 PM, Mon, Tue, Thu, Fri); a sale outside those hours adds its own row. Sales on closed days are left out.</p>
     <div className="filter-chips">
       {BUSY_SCOPES.map(([key, label]) => <React.Fragment key={key}>{chip(scope === key, label, () => setScope(key))}</React.Fragment>)}<span className="chip-gap" aria-hidden="true" />
       {chip(slotMinutes === 30, 'Half hours', () => setSlotMinutes(30))}{chip(slotMinutes === 60, 'Hours', () => setSlotMinutes(60))}
