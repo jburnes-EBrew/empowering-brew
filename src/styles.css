@@ -126,6 +126,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .record-button.no-changes:not(:disabled) { background: #3f6e2c; }
 .flavor-grid-wide { grid-template-columns: repeat(3, 1fr); }
 .picked-changes { margin: -4px 0 14px; color: var(--headers); font-weight: 750; text-align: center; }
+.reorder-category { display: block; color: var(--muted); font-size: .8rem; }
 .practice-panel { border-left-color: var(--danger); }
 @media (max-width: 640px) { .change-grid, .flavor-grid-wide { grid-template-columns: repeat(2, 1fr); } }
 .full-button { width: 100%; }

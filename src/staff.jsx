@@ -3,7 +3,7 @@ import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, H
 import { hashPin, storageStatus, uid } from './storage';
 import { clearPractice, dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
-import { ESTIMATE_LABELS, MEASURES, bakeryReport, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { ESTIMATE_LABELS, MEASURES, bakeryReport, reorderList, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
@@ -643,6 +643,7 @@ function ReportsTab({ state, setState, staffName }) {
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
     <PracticePanel state={state} setState={setState} />
+    <ReorderList state={state} />
     <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately. Open days only (Mon, Tue, Thu, Fri); sales on closed days are left out." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Free student drinks</span><strong>{report.sales.filter((sale) => sale.studentDrink).length}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
@@ -656,6 +657,24 @@ function ReportsTab({ state, setState, staffName }) {
     <h3 className="subheading">Estimated ingredient usage this week</h3>
     {report.usage.length ? <div className="data-list">{report.usage.map((use) => <div className="data-row simple-row" key={`${use.itemName}-${use.unit}`}><span><strong>{use.itemName}</strong></span><span>{formatNumber(use.quantity)} {use.unit}</span></div>)}</div>
       : <p className="subheading-help">No usage estimated yet. Usage appears once recipes have confirmed inventory items, standard amounts, and measured pump volumes.</p>}
+  </>;
+}
+
+// Everything below par, to download and send to whoever does the ordering.
+function ReorderList({ state }) {
+  const rows = useMemo(() => reorderList(state, INVENTORY_CATEGORIES), [state]);
+  const download = () => saveFile(`empowering-brew-reorder-list-${dateStamp()}.csv`, toCsv([
+    ['Empowering Brew reorder list', `Made ${timeLabel(new Date().toISOString())}`],
+    [],
+    ['Item', 'Category', 'Counted in', 'Par', 'Estimated on hand', 'Need to reach par', 'Order (whole units)', 'Last counted'],
+    ...rows.map((row) => [row.item.name.trim(), row.item.category, row.item.countUnit, row.item.full, row.estimate, row.need, row.order, row.lastCountAt ? timeLabel(row.lastCountAt) : 'Not counted yet']),
+  ]), 'text/csv');
+  return <>
+    <SectionHeading title="Reorder list" description="Every item below par, from the Inventory estimates. Download it to email or share with whoever does the ordering. Order is the amount needed, rounded up to whole units." action={<button className="button secondary" onClick={download} disabled={!rows.length}><DownloadIcon size={20} /> Download reorder list</button>} />
+    {rows.length ? <div className="table-scroll"><table className="report-table">
+      <thead><tr><th>Item</th><th>Counted in</th><th>Par</th><th>On hand</th><th>Need</th><th>Order</th></tr></thead>
+      <tbody>{rows.map((row) => <tr key={row.item.id}><td>{row.item.name}<small className="reorder-category">{row.item.category}</small></td><td>{row.item.countUnit || '—'}</td><td>{formatNumber(row.item.full)}</td><td>{formatNumber(row.estimate)}</td><td>{formatNumber(row.need)}</td><td><strong>{row.order}</strong></td></tr>)}</tbody>
+    </table></div> : <p className="subheading-help">Nothing is below par right now.</p>}
   </>;
 }
 

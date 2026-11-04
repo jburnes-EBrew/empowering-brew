@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { bakeryReport, busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
+import { bakeryReport, reorderList, busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
 import { migrate } from './storage';
 
 const configured = () => {
@@ -96,6 +96,17 @@ describe('reports and migration', () => {
     expect(bakery.sold[1]).toBe(2);
     expect(bakery.excess).toEqual([0, 3, 0, 0, 0, 0, 0]);
     expect(bakery.made[1]).toBe(5);
+  });
+
+  it('lists items below par with the amount to order', () => {
+    const state = cloneInitialState();
+    const rows = reorderList(state, ['Coffee & bar', 'Milk & cream']);
+    const reg = rows.find((row) => row.item.id === 'coffee-reg');
+    expect(reg).toMatchObject({ estimate: 0, need: 6, order: 6 });
+    expect(rows.find((row) => row.item.id === 'whole-milk')).toBeUndefined(); // 3 on hand, par 3
+    state.inventoryEvents.push({ id: 'c', type: 'count', itemId: 'whole-milk', countedValue: 1.25, at: '2099-01-01T00:00:00.000Z' });
+    expect(reorderList(state, []).find((row) => row.item.id === 'whole-milk')).toMatchObject({ need: 1.75, order: 2 });
+    expect(rows[0].item.category).toBe('Coffee & bar');
   });
 
   it('leaves out sales on closed days', () => {

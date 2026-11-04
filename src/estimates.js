@@ -168,6 +168,21 @@ export function weeklyReport(state, startDate) {
   return { start, end, sales, rows, usage: Object.values(usage).sort((a, b) => a.itemName.localeCompare(b.itemName)), withoutFullEstimate: sales.filter((sale) => sale.estimateStatus !== 'complete').length };
 }
 
+// Reorder list: active items whose estimate is below par, with how many are needed and
+// that rounded up to whole units for ordering. Kept in the inventory category order.
+export function reorderList(state, categories) {
+  const balances = inventoryBalances(state);
+  const order = (item) => { const at = categories.indexOf(item.category); return at < 0 ? categories.length : at; };
+  return state.inventory
+    .filter((item) => item.active && item.full > 0 && balances[item.id].estimate < item.full)
+    .sort((a, b) => order(a) - order(b))
+    .map((item) => {
+      const estimate = round(balances[item.id].estimate);
+      const need = round(item.full - Math.max(0, estimate));
+      return { item, estimate, need, order: Math.ceil(need - 1e-9), lastCountAt: balances[item.id].lastCountAt };
+    });
+}
+
 // Bakery treats are made daily; unsold ones go to staff and are recorded as excess
 // (a 'bakery-excess' event with a count and the day it was for). Made = sold + excess.
 export function bakeryReport(state, report) {
