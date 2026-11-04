@@ -19,9 +19,9 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 ## Layout
 
 - `src/App.jsx` — student sales screen: HOT/ICED tabs, drink buttons, the drink box (`DrinkPicker`: flavor → green "No changes — record drink" or Take off / Add or swap → blue record button), Student drink and Decaf toggles (next drink only), Undo, Count screen.
-- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports also holds the Backups, Staff PIN and Clear practice data panels.
+- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports holds the Backups, Staff PIN and Clear practice data panels, then the Reorder list, Weekly sales, Bakery items and Busy times.
 - `src/data.js` — seed menu, products, recipes, inventory, `SHOP_HOURS`, `SCHEMA_VERSION`.
-- `src/estimates.js` — recipe usage estimates, drink changes (`changeChoices`, `withChanges`, `latteAdditions`), inventory balances, weekly/bakery/busy-time reports.
+- `src/estimates.js` — recipe usage estimates, drink changes (`changeChoices`, `withChanges`, `latteAdditions`), inventory balances, reorder/weekly/bakery/busy-time reports.
 - `src/updates.js` — one-time data updates applied on load (`applyUpdates`).
 - `src/storage.js` — IndexedDB persistence (localStorage fallback), schema migration, PIN hashing.
 - `src/backup.js` — sales CSV, full JSON backup/restore, daily reminder, `clearPractice`.
@@ -36,7 +36,11 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 - **Shop hours:** 10 AM–2 PM, Mon/Tue/Thu/Fri (`SHOP_HOURS`). Reports show open days only and leave out sales on closed days. Daily backup reminder defaults to 2:15 PM.
 - **Sales:** drink changes adjust the inventory estimate, not the price. Student drinks are `price: 0, studentDrink: true`, still count against inventory, and are left out of Busy times. The bakery treat (food) records in one tap.
 - **Bakery excess** is an inventory event `type: 'bakery-excess'` with `count` and `forDate`; it has no `itemId`, so it doesn't touch balances.
+- **Packaging:** each bakery treat sale uses 1 sweet treat sleeve + 1 small sticker (the treat itself is an excluded line). Every hot drink with a hot cup sleeve also uses 1 large sticker. Stickers are counted by the sheet: large = 6 per sheet; small stickers per sheet is still unknown.
+- **Par:** `item.full` is par. Below-par items show "Need N more to reach par" (not "Below par", which staff misread as a count). The Reorder list in Reports lists them with Need and Order (rounded up to whole count units) and downloads as CSV for the person who orders.
+- **Counts are in each item's count unit** (`countUnit`), e.g. sweet treat sleeves are counted one by one, coffee by the bag.
 - **Keep the printable guides in sync.** When app behavior or screens change, update the guides in `Guides/` (Getting Started, App Tour, Backup & Restore, and the Student Guide, which is written for students with varying support needs: short steps, pictures, plain words).
+- **Go-live:** practice data was cleared and the baseline inventory count done on Nov 4, 2026; real tracking starts Nov 5, 2026. Don't suggest clearing data again unless asked.
 - **Out of scope for now:** drink-ticket printing is on hold for budget. Don't build it.
 
 ## Style
