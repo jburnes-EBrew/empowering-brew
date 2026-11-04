@@ -188,7 +188,13 @@ describe('weekly over/under', () => {
     const report = overUnderReport(week(), 'week');
     expect(report.sold).toBe(2);
     const milk = report.items.find((row) => row.item.id === 'whole-milk');
-    expect(milk).toMatchObject({ start: 3, delivered: 4, counted: 4, expected: 2, actual: 3, difference: 1, status: 'more', missedDelivery: false });
+    expect(milk).toMatchObject({ start: 3, delivered: 4, counted: 4, expected: 2, actual: 3, difference: 1, status: 'more', close: false, percent: 50, missedDelivery: false });
+  });
+
+  it('marks small misses as close (within 20%)', () => {
+    const state = week();
+    state.inventoryEvents.find((event) => event.id === 'week-whole-milk').countedValue = 4.65;
+    expect(overUnderReport(state, 'week').items.find((row) => row.item.id === 'whole-milk')).toMatchObject({ status: 'more', close: true, percent: 18 });
   });
 
   it('flags a likely missed delivery and items sales do not track', () => {

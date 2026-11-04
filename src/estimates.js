@@ -235,6 +235,7 @@ export const clockLabel = (minutes) => {
 // recipes say the sales used, plus recorded waste. Items whose last count was only the
 // opening balance are left out, since that number never came from a real count.
 export const OVER_UNDER_BAND = 0.1; // within 10% (or a quarter unit) counts as about right
+export const OVER_UNDER_CLOSE = 0.2; // within 20% is close: celebrated, not something to work on
 
 export function finalizedCounts(state) {
   const sessions = new Map();
@@ -281,11 +282,14 @@ export function overUnderReport(state, sessionId) {
     const actual = round(previous.countedValue + delivered - count.countedValue);
     const difference = round(actual - expected);
     const band = Math.max(OVER_UNDER_BAND * Math.abs(expected), 0.25);
-    const tracked = recipeUse > 0 || unconverted;
+    // Only items whose recipe use converts to count units can be compared (e.g. small stickers wait on a sheet size).
+    const tracked = recipeUse > 0;
     const status = !tracked ? 'untracked' : difference > band ? 'more' : difference < -band ? 'less' : 'right';
+    const close = Math.abs(difference) <= Math.max(OVER_UNDER_CLOSE * Math.abs(expected), 0.25);
     since = !since || previous.at > since ? previous.at : since;
     items.push({
-      item, start: previous.countedValue, delivered: round(delivered), counted: count.countedValue, expected, actual, difference, status, unconverted,
+      item, start: previous.countedValue, delivered: round(delivered), counted: count.countedValue, expected, actual, difference, status, close, unconverted,
+      percent: expected > 0 ? Math.round(Math.abs(difference) / expected * 100) : null,
       // More on the shelf than last count plus deliveries: something came in that wasn't entered.
       missedDelivery: actual < 0,
       reason: count.reason,

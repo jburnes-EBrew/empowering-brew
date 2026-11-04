@@ -755,17 +755,9 @@ function ReorderList({ state, section }) {
   </ReportSection>;
 }
 
-// Weekly over/under: run after the Wednesday count, then open the student page to print
-// or go over on the iPad with students.
-const OVER_UNDER_GROUPS = [
-  ['more', 'Used more than expected', 'We used more than the drinks we sold should take.'],
-  ['less', 'Used less than expected', 'We used less than the drinks we sold should take.'],
-  ['right', 'About right', 'Close to what the recipes say. Nice work!'],
-];
-const OVER_UNDER_HINTS = {
-  more: ['Spills, remakes or wasted drinks that weren’t entered', 'Drinks made but not tapped on the iPad', 'Bigger portions than the recipe'],
-  less: ['Drinks tapped that weren’t made (Undo forgotten)', 'Smaller portions than the recipe', 'A miscount, this week or last week'],
-};
+// Weekly over/under: run after the Wednesday count, then open the student report to print
+// or go over on the iPad. Page 1 celebrates what went right or close; page 2 is a short
+// list of things to work on, with a tip for each.
 const STAFF_REASONS = ['Unrecorded waste or spill', 'Unrecorded restock', 'Recipe estimate differs from actual use', 'Earlier count was wrong', 'Other'];
 const hundredths = (value) => Math.round(value * 100) / 100;
 const weekdayDate = (iso) => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date(iso));
@@ -775,6 +767,54 @@ function amountText(value, unit) {
   if (!unit || unit === 'each') return number;
   return `${number} ${Math.abs(hundredths(value)) === 1 ? unit : /(x|s|ch|sh)$/.test(unit) ? `${unit}es` : `${unit}s`}`;
 }
+// Close counts as a win; a likely missed delivery is always something to work on.
+const isCelebration = (row) => !row.missedDelivery && (row.status === 'right' || ((row.status === 'more' || row.status === 'less') && row.close));
+const isWorkOn = (row) => row.missedDelivery || ((row.status === 'more' || row.status === 'less') && !row.close);
+
+const WORK_TIPS = {
+  'Syrups & sauces': { more: 'Count the pumps. Use the recipe number every time.', less: 'Use every pump the recipe calls for. Customers can taste the difference!' },
+  'Toppings & sweeteners': { more: 'Use the recipe amount of topping, not a little extra.', less: 'Add the full topping the recipe calls for. It’s part of what makes the drink special.' },
+  'Milk & cream': { more: 'Pour only what the drink needs. Use the line on the pitcher or cup.', less: 'Fill to the recipe amount so every drink tastes right.' },
+  'Coffee & bar': { more: 'Measure with the scoop every time.', less: 'Use the full recipe amount.' },
+  count: { more: 'Tap every drink on the iPad, even when it’s busy. Enter remakes and spills too.', less: 'Tap a drink only once it’s ordered. Made a mistake? Tap Undo right away.' },
+};
+const TIP_GROUP = { whip: 'Toppings & sweeteners' }; // whipped topping is stored with milk but used like a topping
+const COUNTED_CATEGORIES = ['Cups & to-go', 'Supplies'];
+
+function workOnText(row) {
+  const name = row.item.name.trim();
+  if (row.missedDelivery) return { headline: `Did we forget to enter a delivery of ${name}?`, detail: 'We counted more than last week, but no delivery was entered.', tip: 'When a box comes in, use Record delivery with the packing slip.' };
+  const counted = COUNTED_CATEGORIES.includes(row.item.category);
+  const more = row.status === 'more';
+  const headline = counted ? (more ? `Too many ${name}` : `Fewer ${name} than expected`) : (more ? `Too much ${name}` : `Not enough ${name}`);
+  const unit = row.item.countUnit;
+  const detail = `Recipes say ${amountText(row.expected, unit)}. We used ${amountText(row.actual, unit)}${row.percent != null ? ` (${row.percent}% ${more ? 'more' : 'less'})` : ''}.`;
+  const tips = WORK_TIPS[counted ? 'count' : TIP_GROUP[row.item.id] || row.item.category] || WORK_TIPS.count;
+  return { headline, detail, tip: tips[more ? 'more' : 'less'] };
+}
+
+// General encouragement for any coffee shop team. Three are picked each week so they change.
+const AFFIRMATIONS = [
+  'Every drink you make can brighten someone’s day.',
+  'A smile and a thank-you are part of every order.',
+  'Great teamwork keeps the line moving.',
+  'Asking questions is how great baristas learn.',
+  'Mistakes happen. Fixing them is what pros do.',
+  'A clean station is a happy station.',
+  'Showing up and doing your best matters.',
+  'Customers remember how you made them feel.',
+  'Following the recipe means every drink tastes just right.',
+  'Helping a teammate makes the whole shop better.',
+  'You are learning skills you can use at any job.',
+  'Being careful with supplies helps the whole shop.',
+  'Every week you get a little faster and a little better.',
+  'Being friendly is the best ingredient.',
+  'You make Empowering Brew a great place to visit.',
+];
+const weeklyAffirmations = (iso) => {
+  const start = Math.floor(new Date(iso).getTime() / (7 * 86400000)) * 3;
+  return [0, 1, 2].map((offset) => AFFIRMATIONS[(start + offset) % AFFIRMATIONS.length]);
+};
 
 function OverUnder({ state, section }) {
   const counts = useMemo(() => finalizedCounts(state), [state]);
@@ -782,61 +822,69 @@ function OverUnder({ state, section }) {
   const [open, setOpen] = useState(false);
   const chosen = counts.find((session) => session.id === sessionId) || counts[0];
   const report = useMemo(() => chosen && overUnderReport(state, chosen.id), [state, chosen]);
-  const tally = (status) => report?.items.filter((row) => row.status === status).length || 0;
   const ready = report?.items.length > 0;
-  return <ReportSection {...section} title="Weekly over/under" summary={ready ? `Count on ${weekdayDate(report.at)} · ${tally('more')} used more · ${tally('less')} used less · ${tally('right')} about right` : 'First report after the next weekly count'} description="Run it on Wednesday after the inventory count is finalized. For each item, it compares what we really used since the last count with what the recipes say the week’s sales used. Open the student report to go over it together or print it." action={<button className="button primary" onClick={() => setOpen(true)} disabled={!ready}><ClipboardIcon size={20} /> Open student report</button>}>
+  const total = (test) => report?.items.filter(test).length || 0;
+  return <ReportSection {...section} title="Weekly over/under" summary={ready ? `Count on ${weekdayDate(report.at)} · ${total(isCelebration)} to celebrate · ${total(isWorkOn)} to work on` : 'First report after the next weekly count'} description="Run it on Wednesday after the inventory count is finalized. For each item, it compares what we really used since the last count with what the recipes say the week’s sales used. The student report has two pages: Celebrations (right on track or close) and Things to Work On (with a tip for each). Go over it together on the iPad or print it." action={<button className="button primary" onClick={() => setOpen(true)} disabled={!ready}><ClipboardIcon size={20} /> Open student report</button>}>
     {counts.length > 1 && <label className="over-under-pick">Count<select value={chosen.id} onChange={(event) => setSessionId(event.target.value)}>{counts.map((session) => <option key={session.id} value={session.id}>{weekdayDate(session.at)}</option>)}</select></label>}
     {ready ? <div className="stat-row">
-      <div><span>Used more than expected</span><strong>{tally('more')}</strong></div>
-      <div><span>Used less than expected</span><strong>{tally('less')}</strong></div>
-      <div><span>About right</span><strong>{tally('right')}</strong></div>
-      <div><span>Possible missed deliveries</span><strong>{report.items.filter((row) => row.missedDelivery).length}</strong></div>
+      <div><span>Right on track</span><strong>{total((row) => isCelebration(row) && row.status === 'right')}</strong></div>
+      <div><span>Close (within 20%)</span><strong>{total((row) => isCelebration(row) && row.status !== 'right')}</strong></div>
+      <div><span>Things to work on</span><strong>{total(isWorkOn)}</strong></div>
+      <div><span>Possible missed deliveries</span><strong>{total((row) => row.missedDelivery)}</strong></div>
     </div> : <p className="subheading-help">{counts.length ? 'This count has nothing to compare yet: every item’s last count was the starting count. The first over/under report appears after the next weekly count is finalized.' : 'No inventory count has been finalized yet.'}</p>}
     {open && report && <OverUnderPage report={report} onClose={() => setOpen(false)} />}
   </ReportSection>;
 }
 
+const WORK_ON_SHOWN = 5; // keeps Things to Work On to one printed page
+
 function OverUnderPage({ report, onClose }) {
-  const group = (status) => report.items.filter((row) => row.status === status).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
-  const untracked = report.items.filter((row) => row.status === 'untracked' && (row.actual > 0 || row.missedDelivery)).sort((a, b) => a.item.name.localeCompare(b.item.name));
+  const byName = (a, b) => a.item.name.localeCompare(b.item.name);
+  const right = report.items.filter((row) => isCelebration(row) && row.status === 'right').sort(byName);
+  const close = report.items.filter((row) => isCelebration(row) && row.status !== 'right').sort(byName);
+  const workOn = report.items.filter(isWorkOn).sort((a, b) => b.missedDelivery - a.missedDelivery || (b.percent ?? 999) - (a.percent ?? 999));
+  const supplies = report.items.filter((row) => row.status === 'untracked' && row.actual > 0).sort(byName);
+  const dates = <p>From the count on <b>{weekdayDate(report.since)}</b> to the count on <b>{weekdayDate(report.at)}</b></p>;
+  const logo = <img src={`${import.meta.env.BASE_URL}brand/empowering-brew-logo.png`} alt="Empowering Brew" />;
   // Rendered straight into <body> so printing can hide the app behind it.
   return createPortal(<div className="report-page" role="dialog" aria-modal="true" aria-label="Weekly over/under report">
     <div className="report-page-tools no-print"><button className="button secondary" onClick={onClose}><BackIcon size={20} /> Back to Reports</button><button className="button primary" onClick={() => window.print()}>Print</button></div>
-    <article className="report-sheet">
-      <header className="report-sheet-head"><img src={`${import.meta.env.BASE_URL}brand/empowering-brew-logo.png`} alt="Empowering Brew" /><div><h1>How did we do this week?</h1><p>From the count on <b>{weekdayDate(report.since)}</b> to the count on <b>{weekdayDate(report.at)}</b></p></div></header>
-      <p className="report-lede">We sold <b>{report.sold}</b> drinks and treats. The recipes tell us how much each one should use. Here is how that compares with what we really used.</p>
-      <div className="report-tiles">{OVER_UNDER_GROUPS.map(([status, title]) => <div key={status} className={`report-tile ${status}`}><strong>{group(status).length}</strong><span>{title}</span></div>)}</div>
-      {OVER_UNDER_GROUPS.map(([status, title, help]) => group(status).length > 0 && <section key={status} className="report-group">
-        <h2 className={status}>{title}</h2><p>{help}</p>
-        <div className="report-cards">{group(status).map((row) => <OverUnderCard key={row.item.id} row={row} />)}</div>
-      </section>)}
-      {untracked.length > 0 && <section className="report-group">
-        <h2 className="untracked">Things sales don’t track</h2><p>Sales don’t count these, so there’s nothing to compare. This is how much we used.</p>
-        <ul className="report-untracked">{untracked.map((row) => <li key={row.item.id}><b>{row.item.name.trim()}</b> {row.missedDelivery ? <em>More than last week, but no delivery was entered. Was one missed?</em> : amountText(row.actual, row.item.countUnit)}</li>)}</ul>
+    <article className="report-sheet celebrate-sheet">
+      <header className="report-sheet-head">{logo}<div><h1>Celebrations</h1>{dates}</div></header>
+      <p className="report-banner">We served <b>{report.sold}</b> drinks and treats this week!</p>
+      <section className="report-group">
+        <h2 className="right">Right on track</h2>
+        <p>We used just what the recipes say. Great job following the recipes!</p>
+        {right.length ? <ul className="report-chips">{right.map((row) => <li key={row.item.id} className="right"><span aria-hidden="true">✓</span>{row.item.name.trim()}</li>)}</ul>
+          : <p className="report-empty">Let’s aim to get one item right on track next week!</p>}
+      </section>
+      {close.length > 0 && <section className="report-group">
+        <h2 className="close">So close!</h2>
+        <p>Almost right on: within 20% of the recipe.</p>
+        <ul className="report-chips">{close.map((row) => <li key={row.item.id} className="close"><span aria-hidden="true">★</span>{row.item.name.trim()}<small>a little {row.status === 'more' ? 'more' : 'less'}</small></li>)}</ul>
       </section>}
-      <section className="report-talk"><h2>Let’s talk about it</h2><ol><li>Which item surprised you?</li><li>Why do you think we used more (or less) of it?</li><li>What is one thing we can do next week to get closer?</li></ol></section>
+      <section className="report-cheers">
+        <h2>Remember</h2>
+        <ul>{weeklyAffirmations(report.at).map((line) => <li key={line}>{line}</li>)}</ul>
+      </section>
+      <section className="report-talk"><h2>Let’s talk about it</h2><ol><li>Which celebration are you proudest of?</li><li>Pick one thing to work on. Why do you think it happened?</li><li>What will you do differently next week?</li></ol></section>
+    </article>
+    <article className="report-sheet work-sheet">
+      <header className="report-sheet-head">{logo}<div><h1>Things to Work On</h1>{dates}</div></header>
+      <p className="report-lede">Small changes make a big difference. Here is what to try next week.</p>
+      {workOn.length ? <ol className="work-list">{workOn.slice(0, WORK_ON_SHOWN).map((row) => {
+        const text = workOnText(row);
+        return <li key={row.item.id} className={row.missedDelivery ? 'missed' : row.status}>
+          <span className="work-mark" aria-hidden="true">{row.missedDelivery ? '?' : row.status === 'more' ? '▲' : '▼'}</span>
+          <div><h3>{text.headline}</h3><p>{text.detail}</p><p className="work-tip"><b>Try this:</b> {text.tip}</p>
+            {STAFF_REASONS.includes(row.reason) && <p className="report-note">Staff note from the count: {row.reason}</p>}</div>
+        </li>;
+      })}</ol> : <p className="report-banner">Nothing big to work on this week. Keep doing what you’re doing!</p>}
+      {workOn.length > WORK_ON_SHOWN && <p className="report-note">Also check: {workOn.slice(WORK_ON_SHOWN).map((row) => row.item.name.trim()).join(', ')}.</p>}
+      <div className="report-flag"><b>Did you forget to ring it in?</b> Tap every drink and treat on the iPad, even when it’s busy. Spills, remakes and deliveries get entered too.</div>
+      {supplies.length > 0 && <p className="report-note">Supplies sales don’t track, used this week: {supplies.map((row) => `${row.item.name.trim()} ${amountText(row.actual, row.item.countUnit)}`).join(' · ')}</p>}
     </article>
   </div>, document.body);
-}
-
-function OverUnderCard({ row }) {
-  const unit = row.item.countUnit;
-  const top = Math.max(row.expected, row.actual, 0.01);
-  const width = (value) => `${Math.max(0, Math.min(100, (value / top) * 100))}%`;
-  const sentence = row.status === 'right' ? 'Right on track.'
-    : `We used ${amountText(row.difference, unit)} ${row.status === 'more' ? 'more' : 'less'} than expected${row.expected > 0 ? ` (${Math.round(Math.abs(row.difference) / row.expected * 100)}%)` : ''}.`;
-  return <div className={`report-card ${row.status}`}>
-    <h3>{row.item.name.trim()}</h3>
-    <div className="report-bars">
-      <span>Recipes say</span><div><i style={{ width: width(row.expected) }} /></div><b>{amountText(row.expected, unit)}</b>
-      <span>We used</span><div><i className="used" style={{ width: width(row.actual) }} /></div><b>{row.actual < 0 ? '?' : amountText(row.actual, unit)}</b>
-    </div>
-    <p className="report-sentence">{sentence}</p>
-    {row.missedDelivery && <p className="report-flag">There’s more on the shelf than last week, but no delivery was entered. Was a delivery missed?</p>}
-    {row.unconverted && <p className="report-note">Some recipe amounts for this item can’t be counted yet, so “Recipes say” is low.</p>}
-    {STAFF_REASONS.includes(row.reason) && <p className="report-note">Staff note from the count: {row.reason}</p>}
-    {OVER_UNDER_HINTS[row.status] && !row.missedDelivery && <div className="report-hints"><b>Maybe:</b><ul>{OVER_UNDER_HINTS[row.status].map((hint) => <li key={hint}>{hint}</li>)}</ul></div>}
-  </div>;
 }
 
 // Bakery made / sold / excess per open day, to settle how many to make.
