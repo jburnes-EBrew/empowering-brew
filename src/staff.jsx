@@ -429,7 +429,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
             return <div className={`data-row ${item.active ? '' : 'row-inactive'}`} key={item.id}>
               <span><strong>{item.name}</strong>{item.note && <small className="warning-text">{item.note}</small>}{unconverted.length > 0 && <small className="warning-text">{unconverted.map(([unit, quantity]) => `${formatNumber(quantity)} ${unit}`).join(', ')} used since last count but not deducted. Set units to convert.</small>}</span>
               <span>{formatNumber(item.full)}</span>
-              <span className={low ? 'low-stock' : ''}><strong>{formatNumber(balance.estimate)}</strong>{low && <small>Below par</small>}</span>
+              <span className={low ? 'low-stock' : ''}><strong>{formatNumber(balance.estimate)}</strong>{low && <small>Need {formatNumber(Math.round((item.full - balance.estimate) * 100) / 100)} more to reach par</small>}</span>
               <span><small>{balance.lastCountAt ? timeLabel(balance.lastCountAt) : 'Workbook only'}</small></span>
               <span><small>{unitLabel(item)}{item.usageUnit && item.usagePerCount ? ` = ${formatNumber(item.usagePerCount)} ${item.usageUnit}` : ''}{item.ozPerPump ? ` · ${item.ozPerPump} oz/pump` : ''}</small></span>
               <span className="row-actions"><button onClick={() => setEventItem(item)}><PlusIcon size={18} /> Event</button><button onClick={() => setEditingItem(item)}><EditIcon /> Edit</button></span>
