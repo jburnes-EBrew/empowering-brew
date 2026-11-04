@@ -72,7 +72,7 @@ describe('backup files', () => {
     const { state: restored, exportedAt } = parseFullBackup(fullBackupText(state));
     expect(exportedAt).toBeTruthy();
     expect(restored.sales).toEqual(state.sales);
-    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(21);
+    expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(22);
   });
 
   it('clears practice data but keeps setup and opening balances', () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
 import { EXTRA_SHOT, SOY_MILK, changeChoices, latteAdditions, currentRecipe, estimateUsage, inventoryBalances, withChanges } from './estimates';
 import { migrate } from './storage';
-import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
+import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, TREAT_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
 
 const fresh = () => migrate(cloneInitialState('2026-10-01T00:00:00.000Z'));
 const product = (state, id) => state.products.find((entry) => entry.id === id);
@@ -119,7 +119,7 @@ describe('monthly special', () => {
     const state = fresh();
     const renamed = { ...state, settings: { ...state.settings, monthlySpecial: 'Peppermint' } };
     expect(migrate(renamed)).toEqual(renamed);
-    expect(renamed.settings.appliedUpdates.slice(-3)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE]);
+    expect(renamed.settings.appliedUpdates.slice(-4)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, TREAT_UPDATE]);
   });
 });
 
@@ -141,6 +141,20 @@ describe('plain vanilla latte', () => {
     const after = migrate(before);
     expect(recipeFor(after, 'latte-flavored-hot').savedBy).toBe('Jen');
     expect(after.settings.appliedUpdates).toContain(VANILLA_UPDATE);
+  });
+});
+
+describe('bakery treat recipe', () => {
+  it('uses one sleeve and one small sticker per treat', () => {
+    const state = fresh();
+    const product = state.products.find((entry) => entry.id === 'bakery-sweet-treat');
+    expect(product.recipeKey).toBe('bakery-sweet-treat');
+    const estimate = estimateUsage(recipeFor(state, 'bakery-sweet-treat'), state.inventory, null);
+    expect(estimate.status).toBe('complete');
+    expect(estimate.usage.map((use) => [use.itemId, use.quantity])).toEqual([['sweet-treat-sleeves', 1], ['stickers-small', 1]]);
+    const sticker = (id) => state.inventory.find((item) => item.id === id);
+    expect(sticker('stickers-large')).toMatchObject({ countUnit: 'sheet', usageUnit: 'each', usagePerCount: 6 });
+    expect(sticker('stickers-small')).toMatchObject({ countUnit: 'sheet', usagePerCount: null });
   });
 });
 

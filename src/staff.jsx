@@ -185,7 +185,7 @@ function RecipesTab({ state, setState, staffName }) {
         return <article className="recipe-row" key={recipe.versionId}>
           <button className="recipe-row-main" onClick={() => setOpen(open === recipe.recipeKey ? null : recipe.recipeKey)} aria-expanded={open === recipe.recipeKey}>
             <TempMark temperature={recipe.temperature} />
-            <span><strong>{recipe.name}</strong><small>{prettyTemperature(recipe.temperature)} · {[recipe.cupSize, recipe.cupType].filter(Boolean).join(' ') || 'Cup not set'} · {recipe.sourceCard || 'No source card'}</small></span>
+            <span><strong>{recipe.name}</strong><small>{recipe.temperature === 'none' ? 'Food' : `${prettyTemperature(recipe.temperature)} · ${[recipe.cupSize, recipe.cupType].filter(Boolean).join(' ') || 'Cup not set'}`} · {recipe.sourceCard || 'No source card'}</small></span>
             <span>{recipe.versionLabel}</span>
             <span><StatusPill status={estimate.status} />{estimate.gaps.length > 0 && <small>{estimate.gaps.length} details needed</small>}</span>
             <DownIcon />
@@ -217,8 +217,10 @@ function RecipeDetail({ state, recipe, estimate, linked, onEdit, onEditPumps }) 
   const history = recipeHistory(state.recipes, recipe.recipeKey);
   return <div className="recipe-detail">
     <dl>
-      <div><dt>Cup</dt><dd>{[recipe.cupSize, recipe.cupType].filter(Boolean).join(' ') || 'Not set'}</dd></div>
-      <div><dt>Espresso</dt><dd>{recipe.espressoShots != null ? `${recipe.espressoShots} shots` : 'Not set'}</dd></div>
+      {recipe.temperature !== 'none' && <>
+        <div><dt>Cup</dt><dd>{[recipe.cupSize, recipe.cupType].filter(Boolean).join(' ') || 'Not set'}</dd></div>
+        <div><dt>Espresso</dt><dd>{recipe.espressoShots != null ? `${recipe.espressoShots} shots` : 'Not set'}</dd></div>
+      </>}
       <div><dt>Source</dt><dd>{recipe.sourceCard || '—'}</dd></div>
       <div><dt>Sold as</dt><dd>{linked.map((product) => product.sourceName).join('; ') || 'Not linked to a product'}</dd></div>
     </dl>

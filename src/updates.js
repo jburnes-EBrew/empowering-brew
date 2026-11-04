@@ -387,4 +387,29 @@ export function applyVanillaUpdate(state, now = new Date().toISOString()) {
   return { ...state, products, recipes, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), VANILLA_UPDATE] } };
 }
 
-export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate, applyVanillaUpdate].reduce((next, update) => update(next, now), state);
+// The owner asked for each bakery treat sale to use one sweet treat sleeve and one small
+// sticker. The treat itself is tracked with Excess bakery items, not inventory, so its
+// line is excluded from the estimate. Stickers are counted by the sheet.
+export const TREAT_UPDATE = 'treat-recipe-2026-11';
+const TREAT_PRODUCT = 'bakery-sweet-treat';
+
+export function applyTreatUpdate(state, now = new Date().toISOString()) {
+  if (state.settings?.appliedUpdates?.includes(TREAT_UPDATE)) return state;
+  const hasRecipe = state.recipes.some((recipe) => recipe.recipeKey === TREAT_PRODUCT);
+  const recipes = hasRecipe ? state.recipes : [...state.recipes, {
+    ...recipeVersion({ version: 1, effectiveFrom: now, changeNote: 'Each treat goes out in one sleeve with one small sticker.' }, {
+      versionId: `${TREAT_PRODUCT}-v1`, recipeKey: TREAT_PRODUCT, name: 'Bakery Sweet Treat', temperature: 'none', lines: [
+        { ...line('treat', 'other', 'Bakery treat', fixed(1), 'each'), excluded: true, note: 'Bakery items are tracked with Excess bakery items, not inventory.' },
+        confirmed(line('treat-sleeve', 'consumable', 'Sweet treat sleeve', fixed(1), 'each', 'sweet-treat-sleeves')),
+        confirmed(line('treat-sticker', 'consumable', 'Small Empowering Brew sticker', fixed(1), 'each', 'stickers-small')),
+      ] }),
+    versionLabel: 'Treat sleeve and sticker (Nov 2026)',
+  }];
+  const products = state.products.map((product) => product.id === TREAT_PRODUCT && !product.recipeKey ? { ...product, recipeKey: TREAT_PRODUCT } : product);
+  // Large stickers are 6 per sheet (the worksheet's 500 had no unit); small is still unknown.
+  const STICKERS = { 'stickers-large': 6, 'stickers-small': null };
+  const inventory = state.inventory.map((item) => item.id in STICKERS && !item.countUnit ? { ...item, countUnit: 'sheet', usageUnit: 'each', usagePerCount: STICKERS[item.id] } : item);
+  return { ...state, products, recipes, inventory, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), TREAT_UPDATE] } };
+}
+
+export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate, applyVanillaUpdate, applyTreatUpdate].reduce((next, update) => update(next, now), state);
