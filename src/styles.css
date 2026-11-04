@@ -127,6 +127,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .flavor-grid-wide { grid-template-columns: repeat(3, 1fr); }
 .picked-changes { margin: -4px 0 14px; color: var(--headers); font-weight: 750; text-align: center; }
 .reorder-category { display: block; color: var(--muted); font-size: .8rem; }
+.count-row.delivery-entered { border-color: var(--sage); background: var(--sage-soft); }
+.delivery-actions { position: sticky; bottom: -24px; background: var(--paper); padding: 12px 0; align-items: center; }
+.delivery-actions span { margin-right: auto; font-weight: 750; color: var(--headers); }
 .practice-panel { border-left-color: var(--danger); }
 @media (max-width: 640px) { .change-grid, .flavor-grid-wide { grid-template-columns: repeat(2, 1fr); } }
 .full-button { width: 100%; }

@@ -38,6 +38,7 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 - **Bakery excess** is an inventory event `type: 'bakery-excess'` with `count` and `forDate`; it has no `itemId`, so it doesn't touch balances.
 - **Packaging:** each bakery treat sale uses 1 sweet treat sleeve + 1 small sticker (the treat itself is an excluded line). Every hot drink with a hot cup sleeve also uses 1 large sticker. Stickers are counted by the sheet: large = 6 per sheet; small stickers per sheet is still unknown.
 - **Par:** `item.full` is par. Below-par items show "Need N more to reach par" (not "Below par", which staff misread as a count). The Reorder list in Reports lists them with Need and Order (rounded up to whole count units) and downloads as CSV for the person who orders.
+- **Deliveries:** Inventory → Record delivery enters a packing slip at once; each line is a `restock` event (shared `deliveryId`, note "Delivery: …") that adds to the estimate. It is not a count.
 - **Counts are in each item's count unit** (`countUnit`), e.g. sweet treat sleeves are counted one by one, coffee by the bag.
 - **Keep the printable guides in sync.** When app behavior or screens change, update the guides in `Guides/` (Getting Started, App Tour, Backup & Restore, and the Student Guide, which is written for students with varying support needs: short steps, pictures, plain words).
 - **Go-live:** practice data was cleared and the baseline inventory count done on Nov 4, 2026; real tracking starts Nov 5, 2026. Don't suggest clearing data again unless asked.

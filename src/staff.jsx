@@ -388,6 +388,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
   const activeItems = state.inventory.filter((item) => item.active).length;
   const [drinkEvent, setDrinkEvent] = useState(false);
   const [bakeryEvent, setBakeryEvent] = useState(false);
+  const [delivery, setDelivery] = useState(false);
   const [reviewing, setReviewing] = useState(null);
   const balances = useMemo(() => inventoryBalances(state), [state]);
   const pending = state.countSessions.filter((session) => session.status === 'pending');
@@ -407,6 +408,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
 
   return <>
     <SectionHeading title="Inventory" description="Estimated balances = last physical count + restocks − waste − estimated recipe usage. Counts change balances only after staff review." action={<>
+      <button className="button secondary" onClick={() => setDelivery(true)}><PlusIcon size={20} /> Record delivery</button>
       <button className="button secondary" onClick={() => setDrinkEvent(true)}>Drink remake / waste</button>
       <button className="button secondary" onClick={() => setBakeryEvent(true)}>Excess bakery items</button>
       <button className="button secondary" onClick={() => setEditingItem({ id: uid('item'), name: '', sourceName: '', category: INVENTORY_CATEGORIES[0], full: 0, onHand: 0, need: 0, countUnit: '', usageUnit: '', usagePerCount: null, ozPerPump: null, active: true, note: '' })}><PlusIcon size={20} /> Add item</button>
@@ -441,6 +443,7 @@ function InventoryTab({ state, setState, staffName, onStartCount }) {
     {eventItem && <InventoryEventEditor item={eventItem} onClose={() => setEventItem(null)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setEventItem(null); }} />}
     {unitsOpen && <UnitsSetup state={state} onClose={() => setUnitsOpen(false)} onSave={(updates) => { setState((current) => ({ ...current, inventory: current.inventory.map((item) => updates[item.id] ? { ...item, ...updates[item.id] } : item) })); setUnitsOpen(false); }} />}
     {editingItem && <ItemEditor item={editingItem} isNew={!state.inventory.some((entry) => entry.id === editingItem.id)} onSave={saveItem} onClose={() => setEditingItem(null)} />}
+    {delivery && <DeliveryEditor state={state} onClose={() => setDelivery(false)} onSave={(events) => { addEvents(events.map((event) => ({ ...event, by: staffName }))); setDelivery(false); }} />}
     {bakeryEvent && <BakeryExcessEditor onClose={() => setBakeryEvent(false)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setBakeryEvent(false); }} />}
     {drinkEvent && <DrinkEventEditor state={state} onClose={() => setDrinkEvent(false)} onSave={(event) => { addEvents([{ ...event, by: staffName }]); setDrinkEvent(false); }} />}
     {reviewing && <CountReview state={state} session={reviewing} balances={balances} staffName={staffName} onClose={() => setReviewing(null)} onFinish={(events, status) => {
@@ -538,6 +541,52 @@ function InventoryEventEditor({ item, onClose, onSave }) {
       <label>Quantity in {unitLabel(item)}<input required type="number" step="any" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
       <label>Note{type === 'adjustment' && ' (required)'}<textarea required={type === 'adjustment'} rows="3" value={note} onChange={(event) => setNote(event.target.value)} /></label>
       <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary">Record event</button></div>
+    </form>
+  </Modal>;
+}
+
+// A delivery from a packing slip: enter only what arrived. Each line is a restock that adds
+// to the estimate; nothing else is counted or changed.
+function DeliveryEditor({ state, onClose, onSave }) {
+  const items = state.inventory.filter((item) => item.active);
+  const [amounts, setAmounts] = useState({});
+  const [note, setNote] = useState('');
+  const [find, setFind] = useState('');
+  const entered = Object.entries(amounts).filter(([, value]) => Number(value) > 0);
+  const step = (id, delta) => setAmounts((current) => ({ ...current, [id]: String(Math.max(0, (Number(current[id]) || 0) + delta)) }));
+  const shown = items.filter((item) => item.name.toLowerCase().includes(find.trim().toLowerCase()));
+  const categories = [...INVENTORY_CATEGORIES, ...new Set(items.map((item) => item.category).filter((category) => !INVENTORY_CATEGORIES.includes(category)))];
+  const submit = (event) => {
+    event.preventDefault();
+    const at = new Date().toISOString();
+    const deliveryId = uid('delivery');
+    onSave(entered.map(([id, value]) => {
+      const item = items.find((entry) => entry.id === id);
+      return { id: uid('event'), type: 'restock', deliveryId, itemId: id, itemName: item.name, quantity: Number(value), at, note: note.trim() ? `Delivery: ${note.trim()}` : 'Delivery' };
+    }));
+  };
+  return <Modal title="Record delivery" onClose={onClose} wide>
+    <form className="stack-form" onSubmit={submit}>
+      <p className="field-help">Enter what arrived from the packing slip. Leave everything else blank. Each item is added to its estimate as a restock; nothing is counted and nothing else changes. Enter amounts in the unit each item is counted in.</p>
+      <div className="form-grid">
+        <label>Packing slip or supplier (optional)<input value={note} onChange={(event) => setNote(event.target.value)} placeholder="For example, Sysco order 4521" /></label>
+        <label>Find an item<input type="search" value={find} onChange={(event) => setFind(event.target.value)} placeholder="Type part of a name" /></label>
+      </div>
+      {categories.map((category) => {
+        const group = shown.filter((item) => item.category === category);
+        if (!group.length) return null;
+        return <section key={category} className="count-group"><h3>{category}</h3><div className="count-grid">
+          {group.map((item) => <div className={`count-row ${Number(amounts[item.id]) > 0 ? 'delivery-entered' : ''}`} key={item.id}>
+            <span><strong>{item.name}</strong><small>Enter in: {item.countUnit || 'same unit as the inventory sheet'}{item.usagePerCount > 1 && item.usageUnit ? ` (1 ${item.countUnit} = ${formatNumber(item.usagePerCount)} ${item.usageUnit})` : ''}</small></span>
+            <div className="stepper">
+              <button type="button" onClick={() => step(item.id, -1)} aria-label={`One less ${item.name}`}><MinusIcon size={22} /></button>
+              <input inputMode="decimal" type="number" step="any" min="0" value={amounts[item.id] || ''} onChange={(event) => setAmounts({ ...amounts, [item.id]: event.target.value })} aria-label={`${item.name} received`} placeholder="—" />
+              <button type="button" onClick={() => step(item.id, 1)} aria-label={`One more ${item.name}`}><PlusIcon size={22} /></button>
+            </div>
+          </div>)}
+        </div></section>;
+      })}
+      <div className="form-actions delivery-actions"><span>{entered.length} {entered.length === 1 ? 'item' : 'items'} entered</span><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button className="button primary" disabled={!entered.length}>Add delivery to inventory</button></div>
     </form>
   </Modal>;
 }
