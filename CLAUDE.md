@@ -19,7 +19,7 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 ## Layout
 
 - `src/App.jsx` — student sales screen: HOT/ICED tabs, drink buttons, the drink box (`DrinkPicker`: flavor → green "No changes — record drink" or Take off / Add or swap → blue record button), Student drink and Decaf toggles (next drink only), Undo, Count screen.
-- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports holds the Backups and Staff PIN panels, then the Reorder list, Weekly over/under, Weekly sales, Bakery items and Busy times.
+- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports holds the Backups and Staff PIN panels, then the Reorder list, Weekly over/under, Weekly sales, Bakery items and Busy times, each a collapsible `ReportSection` (arrow + one-line summary; open state remembered per iPad in localStorage). A new report gets its own `ReportSection` and an ID in `REPORT_IDS`.
 - `src/data.js` — seed menu, products, recipes, inventory, `SHOP_HOURS`, `SCHEMA_VERSION`.
 - `src/estimates.js` — recipe usage estimates, drink changes (`changeChoices`, `withChanges`, `latteAdditions`), inventory balances, reorder/weekly/bakery/busy-time reports.
 - `src/updates.js` — one-time data updates applied on load (`applyUpdates`).

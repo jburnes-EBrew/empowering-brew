@@ -689,29 +689,57 @@ function ReportsTab({ state, setState, staffName }) {
   const totals = WEEKDAYS.map((_, index) => report.rows.reduce((sum, row) => sum + row.days[index], 0));
   const revenue = report.sales.reduce((sum, sale) => sum + (sale.price || 0), 0);
   const exportCsv = () => saveFile(`empowering-brew-sales-week-of-${dateStamp(report.start)}.csv`, toCsv(salesCsvRows(report.sales)), 'text/csv');
+  const sections = useOpenReports();
+  const weekNav = <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>;
+  const allOpen = sections.open.length === REPORT_IDS.length;
   return <>
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
-    <ReorderList state={state} />
-    <OverUnder state={state} />
-    <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately. Open days only (Mon, Tue, Thu, Fri); sales on closed days are left out." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
-    <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
+    <div className="report-list-head"><h2>Reports</h2><button className="button secondary" onClick={() => sections.setOpen(allOpen ? [] : REPORT_IDS)}>{allOpen ? 'Close all' : 'Open all'}</button></div>
+    <ReorderList state={state} section={sections.props('reorder')} />
+    <OverUnder state={state} section={sections.props('over-under')} />
+    <ReportSection {...sections.props('sales')} title="Weekly sales" summary={`Week of ${dayLabel(report.start)} · ${report.sales.length} sold · $${revenue.toFixed(2)}`} description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately. Open days only (Mon, Tue, Thu, Fri); sales on closed days are left out." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>}>
+    {weekNav}
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Free student drinks</span><strong>{report.sales.filter((sale) => sale.studentDrink).length}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
     <div className="table-scroll"><table className="report-table">
       <thead><tr><th>Product</th>{WEEKDAYS.map((day, index) => showDays[index] && <th key={day}>{day}<small>{dayLabel(dates[index])}</small></th>)}<th>Total</th></tr></thead>
       <tbody>{report.rows.map((row) => <tr key={row.product.id}><td><span className={`temp-dot ${row.product.temperature}`} />{productLabel(state, row.product)}</td>{row.days.map((count, index) => showDays[index] && <td key={index}>{count || ''}</td>)}<td><strong>{row.total}</strong></td></tr>)}</tbody>
       <tfoot><tr><td>Total</td>{totals.map((count, index) => showDays[index] && <td key={index}>{count}</td>)}<td>{report.sales.length}</td></tr></tfoot>
     </table></div>
-    <BakeryTable state={state} report={report} showDays={showDays} />
-    <BusyTimes state={state} />
     <h3 className="subheading">Estimated ingredient usage this week</h3>
     {report.usage.length ? <div className="data-list">{report.usage.map((use) => <div className="data-row simple-row" key={`${use.itemName}-${use.unit}`}><span><strong>{use.itemName}</strong></span><span>{formatNumber(use.quantity)} {use.unit}</span></div>)}</div>
       : <p className="subheading-help">No usage estimated yet. Usage appears once recipes have confirmed inventory items, standard amounts, and measured pump volumes.</p>}
+    </ReportSection>
+    <BakeryTable state={state} report={report} showDays={showDays} weekNav={weekNav} section={sections.props('bakery')} />
+    <BusyTimes state={state} section={sections.props('busy')} />
   </>;
 }
 
+// Reports fold up so the page stays short. Which ones are open is remembered on this iPad only.
+const REPORT_IDS = ['reorder', 'over-under', 'sales', 'bakery', 'busy'];
+const OPEN_REPORTS_KEY = 'empowering-brew-open-reports';
+function useOpenReports() {
+  const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem(OPEN_REPORTS_KEY)) || []; } catch { return []; } });
+  useEffect(() => { try { localStorage.setItem(OPEN_REPORTS_KEY, JSON.stringify(open)); } catch { /* private browsing: just don't remember */ } }, [open]);
+  const toggle = (id) => setOpen((current) => current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]);
+  return { open, setOpen, props: (id) => ({ id, open: open.includes(id), onToggle: () => toggle(id) }) };
+}
+
+function ReportSection({ id, title, summary, description, action, open, onToggle, children }) {
+  return <section className={`report-section ${open ? 'open' : ''}`}>
+    <button type="button" className="report-section-toggle" aria-expanded={open} aria-controls={`report-${id}`} onClick={onToggle}>
+      <span className="report-section-arrow" aria-hidden="true"><DownIcon size={26} /></span>
+      <span className="report-section-title"><strong>{title}</strong>{summary && <small>{summary}</small>}</span>
+    </button>
+    {open && <div className="report-section-body" id={`report-${id}`}>
+      {(description || action) && <div className="report-section-intro"><p>{description}</p>{action}</div>}
+      {children}
+    </div>}
+  </section>;
+}
+
 // Everything below par, to download and send to whoever does the ordering.
-function ReorderList({ state }) {
+function ReorderList({ state, section }) {
   const rows = useMemo(() => reorderList(state, INVENTORY_CATEGORIES), [state]);
   const download = () => saveFile(`empowering-brew-reorder-list-${dateStamp()}.csv`, toCsv([
     ['Empowering Brew reorder list', `Made ${timeLabel(new Date().toISOString())}`],
@@ -719,13 +747,12 @@ function ReorderList({ state }) {
     ['Item', 'Category', 'Counted in', 'Par', 'Estimated on hand', 'Need to reach par', 'Order (whole units)', 'Last counted'],
     ...rows.map((row) => [row.item.name.trim(), row.item.category, row.item.countUnit, row.item.full, row.estimate, row.need, row.order, row.lastCountAt ? timeLabel(row.lastCountAt) : 'Not counted yet']),
   ]), 'text/csv');
-  return <>
-    <SectionHeading title="Reorder list" description="Every item below par, from the Inventory estimates. Download it to email or share with whoever does the ordering. Order is the amount needed, rounded up to whole units." action={<button className="button secondary" onClick={download} disabled={!rows.length}><DownloadIcon size={20} /> Download reorder list</button>} />
+  return <ReportSection {...section} title="Reorder list" summary={rows.length ? `${rows.length} ${rows.length === 1 ? 'item' : 'items'} below par` : 'Nothing below par'} description="Every item below par, from the Inventory estimates. Download it to email or share with whoever does the ordering. Order is the amount needed, rounded up to whole units." action={<button className="button secondary" onClick={download} disabled={!rows.length}><DownloadIcon size={20} /> Download reorder list</button>}>
     {rows.length ? <div className="table-scroll"><table className="report-table">
       <thead><tr><th>Item</th><th>Counted in</th><th>Par</th><th>On hand</th><th>Need</th><th>Order</th></tr></thead>
       <tbody>{rows.map((row) => <tr key={row.item.id}><td>{row.item.name}<small className="reorder-category">{row.item.category}</small></td><td>{row.item.countUnit || '—'}</td><td>{formatNumber(row.item.full)}</td><td>{formatNumber(row.estimate)}</td><td>{formatNumber(row.need)}</td><td><strong>{row.order}</strong></td></tr>)}</tbody>
     </table></div> : <p className="subheading-help">Nothing is below par right now.</p>}
-  </>;
+  </ReportSection>;
 }
 
 // Weekly over/under: run after the Wednesday count, then open the student page to print
@@ -749,7 +776,7 @@ function amountText(value, unit) {
   return `${number} ${Math.abs(hundredths(value)) === 1 ? unit : /(x|s|ch|sh)$/.test(unit) ? `${unit}es` : `${unit}s`}`;
 }
 
-function OverUnder({ state }) {
+function OverUnder({ state, section }) {
   const counts = useMemo(() => finalizedCounts(state), [state]);
   const [sessionId, setSessionId] = useState(null);
   const [open, setOpen] = useState(false);
@@ -757,8 +784,7 @@ function OverUnder({ state }) {
   const report = useMemo(() => chosen && overUnderReport(state, chosen.id), [state, chosen]);
   const tally = (status) => report?.items.filter((row) => row.status === status).length || 0;
   const ready = report?.items.length > 0;
-  return <>
-    <SectionHeading title="Weekly over/under" description="Run it on Wednesday after the inventory count is finalized. For each item, it compares what we really used since the last count with what the recipes say the week’s sales used. Open the student report to go over it together or print it." action={<button className="button primary" onClick={() => setOpen(true)} disabled={!ready}><ClipboardIcon size={20} /> Open student report</button>} />
+  return <ReportSection {...section} title="Weekly over/under" summary={ready ? `Count on ${weekdayDate(report.at)} · ${tally('more')} used more · ${tally('less')} used less · ${tally('right')} about right` : 'First report after the next weekly count'} description="Run it on Wednesday after the inventory count is finalized. For each item, it compares what we really used since the last count with what the recipes say the week’s sales used. Open the student report to go over it together or print it." action={<button className="button primary" onClick={() => setOpen(true)} disabled={!ready}><ClipboardIcon size={20} /> Open student report</button>}>
     {counts.length > 1 && <label className="over-under-pick">Count<select value={chosen.id} onChange={(event) => setSessionId(event.target.value)}>{counts.map((session) => <option key={session.id} value={session.id}>{weekdayDate(session.at)}</option>)}</select></label>}
     {ready ? <div className="stat-row">
       <div><span>Used more than expected</span><strong>{tally('more')}</strong></div>
@@ -767,7 +793,7 @@ function OverUnder({ state }) {
       <div><span>Possible missed deliveries</span><strong>{report.items.filter((row) => row.missedDelivery).length}</strong></div>
     </div> : <p className="subheading-help">{counts.length ? 'This count has nothing to compare yet: every item’s last count was the starting count. The first over/under report appears after the next weekly count is finalized.' : 'No inventory count has been finalized yet.'}</p>}
     {open && report && <OverUnderPage report={report} onClose={() => setOpen(false)} />}
-  </>;
+  </ReportSection>;
 }
 
 function OverUnderPage({ report, onClose }) {
@@ -814,26 +840,25 @@ function OverUnderCard({ row }) {
 }
 
 // Bakery made / sold / excess per open day, to settle how many to make.
-function BakeryTable({ state, report, showDays }) {
+function BakeryTable({ state, report, showDays, weekNav, section }) {
   const bakery = useMemo(() => bakeryReport(state, report), [state, report]);
   const sum = (list) => list.reduce((total, value, index) => total + (showDays[index] ? value : 0), 0);
   const row = (label, list, strong = false) => <tr><td>{label}</td>{list.map((count, index) => showDays[index] && <td key={index}>{strong ? <strong>{count || ''}</strong> : count || ''}</td>)}<td><strong>{sum(list)}</strong></td></tr>;
-  return <>
-    <h3 className="subheading">Bakery items</h3>
-    <p className="subheading-help">Sold at the register plus excess moved to the staff offer (Inventory → Excess bakery items). Made is the two added together; use it to find the right number to make each day.</p>
+  return <ReportSection {...section} title="Bakery items" summary={`Week of ${dayLabel(report.start)} · ${sum(bakery.sold)} sold · ${sum(bakery.excess)} to staff`} description="Sold at the register plus excess moved to the staff offer (Inventory → Excess bakery items). Made is the two added together; use it to find the right number to make each day.">
+    {weekNav}
     <div className="table-scroll"><table className="report-table">
       <thead><tr><th>Bakery</th>{WEEKDAYS.map((day, index) => showDays[index] && <th key={day}>{day}</th>)}<th>Total</th></tr></thead>
       <tbody>{row('Sold', bakery.sold)}{row('Excess (to staff)', bakery.excess)}</tbody>
       <tfoot>{row('Made', bakery.made)}</tfoot>
     </table></div>
-  </>;
+  </ReportSection>;
 }
 
 // When drinks are ordered, for staffing and prep. Every sale already records its time.
 // This week and last week are calendar weeks (Monday to Sunday), whatever week the table above shows.
 const BUSY_SCOPES = [['this', 'This week', 0], ['last', 'Last week', -1], ['all', 'All weeks', null]];
 
-function BusyTimes({ state }) {
+function BusyTimes({ state, section }) {
   const [scope, setScope] = useState('this');
   const [slotMinutes, setSlotMinutes] = useState(30);
   const [, , offset] = BUSY_SCOPES.find(([key]) => key === scope);
@@ -847,8 +872,7 @@ function BusyTimes({ state }) {
   const days = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index));
   const shade = (count) => count ? { background: `rgba(4, 107, 177, ${0.12 + 0.78 * count / busy.max})`, color: count / busy.max > 0.5 ? 'white' : undefined } : undefined;
   const chip = (on, label, onClick) => <button type="button" className={`chip ${on ? 'selected' : ''}`} aria-pressed={on} onClick={onClick}>{label}</button>;
-  return <>
-    <h3 className="subheading">Busy times</h3>
+  return <ReportSection {...section} title="Busy times" summary={busy.busiest ? `Busiest (${BUSY_SCOPES.find(([key]) => key === scope)[1].toLowerCase()}): ${WEEKDAYS[busy.busiest.day]}${start ? '' : 's'}, ${clockLabel(busy.busiest.startMinutes)}` : 'No sales yet'}>
     <p className="subheading-help">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}, by the time they were rung up. Darker squares are busier; use them to plan who works when and when to prep. Free student drinks are left out. Shows open hours (10 AM–2 PM, Mon, Tue, Thu, Fri); a sale outside those hours adds its own row. Sales on closed days are left out.</p>
     <div className="filter-chips">
       {BUSY_SCOPES.map(([key, label]) => <React.Fragment key={key}>{chip(scope === key, label, () => setScope(key))}</React.Fragment>)}<span className="chip-gap" aria-hidden="true" />
@@ -861,7 +885,7 @@ function BusyTimes({ state }) {
         <tbody>{busy.slots.map((slot) => <tr key={slot.startMinutes}><td>{clockLabel(slot.startMinutes)}</td>{slot.days.map((count, index) => days[index] && <td key={index} style={shade(count)}>{count || ''}</td>)}<td><strong>{slot.total || ''}</strong></td></tr>)}</tbody>
       </table></div>
     </> : <p className="subheading-help">{{ this: 'No sales this week yet.', last: `No sales last week (week of ${start && dayLabel(start)}).`, all: 'No sales recorded yet.' }[scope]}</p>}
-  </>;
+  </ReportSection>;
 }
 
 function BackupPanel({ state, setState }) {
