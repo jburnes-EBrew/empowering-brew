@@ -229,3 +229,68 @@ export const clockLabel = (minutes) => {
   const hours = Math.floor(minutes / 60) % 24;
   return `${hours % 12 || 12}:${String(minutes % 60).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
 };
+
+// Weekly over/under, for teaching: for each item in a finalized count, compare what we really
+// used since that item's last count (last count + deliveries − this count) with what the
+// recipes say the sales used, plus recorded waste. Items whose last count was only the
+// opening balance are left out, since that number never came from a real count.
+export const OVER_UNDER_BAND = 0.1; // within 10% (or a quarter unit) counts as about right
+
+export function finalizedCounts(state) {
+  const sessions = new Map();
+  for (const event of state.inventoryEvents) {
+    if (event.type !== 'count') continue;
+    const key = event.countSessionId || event.at;
+    const session = sessions.get(key) || { id: key, at: event.at, events: [] };
+    session.events.push(event);
+    if (event.at > session.at) session.at = event.at;
+    sessions.set(key, session);
+  }
+  return [...sessions.values()].sort((a, b) => b.at.localeCompare(a.at));
+}
+
+export function overUnderReport(state, sessionId) {
+  const session = finalizedCounts(state).find((entry) => entry.id === sessionId);
+  if (!session) return null;
+  const items = [];
+  let since = null;
+  for (const count of session.events) {
+    const item = state.inventory.find((entry) => entry.id === count.itemId);
+    const previous = state.inventoryEvents
+      .filter((event) => event.itemId === count.itemId && event.countedValue != null && event.at < count.at)
+      .sort((a, b) => a.at.localeCompare(b.at)).at(-1);
+    if (!item || !previous || previous.type === 'opening') continue;
+    const inWindow = (at) => at > previous.at && at <= count.at;
+    let delivered = 0;
+    let recorded = 0;
+    for (const event of state.inventoryEvents) {
+      if (event.itemId !== item.id || event.countedValue != null || typeof event.quantity !== 'number' || !inWindow(event.at)) continue;
+      if (event.type === 'restock') delivered += event.quantity; else recorded += event.quantity;
+    }
+    let recipeUse = 0;
+    let unconverted = false;
+    const uses = [
+      ...state.sales.filter((sale) => !sale.voidedAt && inWindow(sale.soldAt)).flatMap((sale) => sale.usage || []),
+      ...state.inventoryEvents.filter((event) => inWindow(event.at)).flatMap((event) => event.usage || []),
+    ].filter((use) => use.itemId === item.id);
+    for (const use of uses) {
+      if (item.usageUnit && item.usageUnit === use.unit && item.usagePerCount > 0) recipeUse += use.quantity / item.usagePerCount;
+      else unconverted = true;
+    }
+    const expected = round(recipeUse - recorded);
+    const actual = round(previous.countedValue + delivered - count.countedValue);
+    const difference = round(actual - expected);
+    const band = Math.max(OVER_UNDER_BAND * Math.abs(expected), 0.25);
+    const tracked = recipeUse > 0 || unconverted;
+    const status = !tracked ? 'untracked' : difference > band ? 'more' : difference < -band ? 'less' : 'right';
+    since = !since || previous.at > since ? previous.at : since;
+    items.push({
+      item, start: previous.countedValue, delivered: round(delivered), counted: count.countedValue, expected, actual, difference, status, unconverted,
+      // More on the shelf than last count plus deliveries: something came in that wasn't entered.
+      missedDelivery: actual < 0,
+      reason: count.reason,
+    });
+  }
+  const sales = since ? state.sales.filter((sale) => !sale.voidedAt && sale.soldAt > since && sale.soldAt <= session.at && onOpenDay(sale)) : [];
+  return { at: session.at, since, items, sold: sales.length, firstCounts: session.events.length - items.length };
+}

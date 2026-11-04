@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { backupDue, clearPractice, fullBackupText, lastScheduledTime, parseFullBackup, salesCsvRows, toCsv } from './backup';
+import { backupDue, fullBackupText, lastScheduledTime, parseFullBackup, salesCsvRows, toCsv } from './backup';
 
 const at = (iso) => new Date(iso);
 const withSales = (times, settings = {}) => {
@@ -73,21 +73,6 @@ describe('backup files', () => {
     expect(exportedAt).toBeTruthy();
     expect(restored.sales).toEqual(state.sales);
     expect(restored.recipes.filter((recipe) => !recipe.supersededAt)).toHaveLength(22);
-  });
-
-  it('clears practice data but keeps setup and opening balances', () => {
-    const state = withSales(['2026-10-27T10:00:00'], { lastSalesBackupAt: '2026-10-27T15:00:00.000Z' });
-    state.inventoryEvents.push({ id: 'e1', type: 'restock', itemId: 'whip', at: '2026-10-27T11:00:00.000Z' });
-    state.countSessions.push({ id: 'c1', status: 'pending', counts: {} });
-    const cleared = clearPractice(state);
-    expect(cleared.sales).toEqual([]);
-    expect(cleared.countSessions).toEqual([]);
-    expect(cleared.inventoryEvents.every((event) => event.type === 'opening')).toBe(true);
-    expect(cleared.inventoryEvents).toHaveLength(state.inventory.length);
-    expect(cleared.settings.lastSalesBackupAt).toBeUndefined();
-    expect(cleared.settings.backupTime).toBe('15:00');
-    expect(cleared.products).toBe(state.products);
-    expect(cleared.recipes).toBe(state.recipes);
   });
 
   it('rejects files that are not full backups', () => {

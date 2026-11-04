@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertIcon, BackIcon, ClipboardIcon, DownIcon, DownloadIcon, EditIcon, HeatIcon, MinusIcon, PauseIcon, PlayIcon, PlusIcon, SnowIcon, UpIcon, CupLogo } from './icons';
+import { createPortal } from 'react-dom';
 import { hashPin, storageStatus, uid } from './storage';
-import { clearPractice, dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
+import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
-import { ESTIMATE_LABELS, MEASURES, bakeryReport, reorderList, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { ESTIMATE_LABELS, MEASURES, bakeryReport, finalizedCounts, overUnderReport, reorderList, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
@@ -691,8 +692,8 @@ function ReportsTab({ state, setState, staffName }) {
   return <>
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
-    <PracticePanel state={state} setState={setState} />
     <ReorderList state={state} />
+    <OverUnder state={state} />
     <SectionHeading title="Weekly sales" description="Same layout as the Empowering Brew Weekly Coffee Sales sheet. Hot and iced are counted separately. Open days only (Mon, Tue, Thu, Fri); sales on closed days are left out." action={<button className="button secondary" onClick={exportCsv} disabled={!report.sales.length}><DownloadIcon size={20} /> Export CSV</button>} />
     <div className="week-nav"><button className="button secondary" onClick={() => shift(-1)}><BackIcon size={20} /> Previous</button><strong>Week of {dayLabel(report.start)}</strong><button className="button secondary" onClick={() => shift(1)}>Next <span className="flip"><BackIcon size={20} /></span></button></div>
     <div className="stat-row"><div><span>Drinks and treats sold</span><strong>{report.sales.length}</strong></div><div><span>Sales at menu price</span><strong>${revenue.toFixed(2)}</strong></div><div><span>Free student drinks</span><strong>{report.sales.filter((sale) => sale.studentDrink).length}</strong></div><div><span>Sales without a complete estimate</span><strong>{report.withoutFullEstimate}</strong></div></div>
@@ -725,6 +726,91 @@ function ReorderList({ state }) {
       <tbody>{rows.map((row) => <tr key={row.item.id}><td>{row.item.name}<small className="reorder-category">{row.item.category}</small></td><td>{row.item.countUnit || '—'}</td><td>{formatNumber(row.item.full)}</td><td>{formatNumber(row.estimate)}</td><td>{formatNumber(row.need)}</td><td><strong>{row.order}</strong></td></tr>)}</tbody>
     </table></div> : <p className="subheading-help">Nothing is below par right now.</p>}
   </>;
+}
+
+// Weekly over/under: run after the Wednesday count, then open the student page to print
+// or go over on the iPad with students.
+const OVER_UNDER_GROUPS = [
+  ['more', 'Used more than expected', 'We used more than the drinks we sold should take.'],
+  ['less', 'Used less than expected', 'We used less than the drinks we sold should take.'],
+  ['right', 'About right', 'Close to what the recipes say. Nice work!'],
+];
+const OVER_UNDER_HINTS = {
+  more: ['Spills, remakes or wasted drinks that weren’t entered', 'Drinks made but not tapped on the iPad', 'Bigger portions than the recipe'],
+  less: ['Drinks tapped that weren’t made (Undo forgotten)', 'Smaller portions than the recipe', 'A miscount, this week or last week'],
+};
+const STAFF_REASONS = ['Unrecorded waste or spill', 'Unrecorded restock', 'Recipe estimate differs from actual use', 'Earlier count was wrong', 'Other'];
+const hundredths = (value) => Math.round(value * 100) / 100;
+const weekdayDate = (iso) => new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date(iso));
+// "1 gallon", "2.5 bags", "3 boxes"; items counted one by one get just the number.
+function amountText(value, unit) {
+  const number = formatNumber(hundredths(Math.abs(value)));
+  if (!unit || unit === 'each') return number;
+  return `${number} ${Math.abs(hundredths(value)) === 1 ? unit : /(x|s|ch|sh)$/.test(unit) ? `${unit}es` : `${unit}s`}`;
+}
+
+function OverUnder({ state }) {
+  const counts = useMemo(() => finalizedCounts(state), [state]);
+  const [sessionId, setSessionId] = useState(null);
+  const [open, setOpen] = useState(false);
+  const chosen = counts.find((session) => session.id === sessionId) || counts[0];
+  const report = useMemo(() => chosen && overUnderReport(state, chosen.id), [state, chosen]);
+  const tally = (status) => report?.items.filter((row) => row.status === status).length || 0;
+  const ready = report?.items.length > 0;
+  return <>
+    <SectionHeading title="Weekly over/under" description="Run it on Wednesday after the inventory count is finalized. For each item, it compares what we really used since the last count with what the recipes say the week’s sales used. Open the student report to go over it together or print it." action={<button className="button primary" onClick={() => setOpen(true)} disabled={!ready}><ClipboardIcon size={20} /> Open student report</button>} />
+    {counts.length > 1 && <label className="over-under-pick">Count<select value={chosen.id} onChange={(event) => setSessionId(event.target.value)}>{counts.map((session) => <option key={session.id} value={session.id}>{weekdayDate(session.at)}</option>)}</select></label>}
+    {ready ? <div className="stat-row">
+      <div><span>Used more than expected</span><strong>{tally('more')}</strong></div>
+      <div><span>Used less than expected</span><strong>{tally('less')}</strong></div>
+      <div><span>About right</span><strong>{tally('right')}</strong></div>
+      <div><span>Possible missed deliveries</span><strong>{report.items.filter((row) => row.missedDelivery).length}</strong></div>
+    </div> : <p className="subheading-help">{counts.length ? 'This count has nothing to compare yet: every item’s last count was the starting count. The first over/under report appears after the next weekly count is finalized.' : 'No inventory count has been finalized yet.'}</p>}
+    {open && report && <OverUnderPage report={report} onClose={() => setOpen(false)} />}
+  </>;
+}
+
+function OverUnderPage({ report, onClose }) {
+  const group = (status) => report.items.filter((row) => row.status === status).sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference));
+  const untracked = report.items.filter((row) => row.status === 'untracked' && (row.actual > 0 || row.missedDelivery)).sort((a, b) => a.item.name.localeCompare(b.item.name));
+  // Rendered straight into <body> so printing can hide the app behind it.
+  return createPortal(<div className="report-page" role="dialog" aria-modal="true" aria-label="Weekly over/under report">
+    <div className="report-page-tools no-print"><button className="button secondary" onClick={onClose}><BackIcon size={20} /> Back to Reports</button><button className="button primary" onClick={() => window.print()}>Print</button></div>
+    <article className="report-sheet">
+      <header className="report-sheet-head"><img src={`${import.meta.env.BASE_URL}brand/empowering-brew-logo.png`} alt="Empowering Brew" /><div><h1>How did we do this week?</h1><p>From the count on <b>{weekdayDate(report.since)}</b> to the count on <b>{weekdayDate(report.at)}</b></p></div></header>
+      <p className="report-lede">We sold <b>{report.sold}</b> drinks and treats. The recipes tell us how much each one should use. Here is how that compares with what we really used.</p>
+      <div className="report-tiles">{OVER_UNDER_GROUPS.map(([status, title]) => <div key={status} className={`report-tile ${status}`}><strong>{group(status).length}</strong><span>{title}</span></div>)}</div>
+      {OVER_UNDER_GROUPS.map(([status, title, help]) => group(status).length > 0 && <section key={status} className="report-group">
+        <h2 className={status}>{title}</h2><p>{help}</p>
+        <div className="report-cards">{group(status).map((row) => <OverUnderCard key={row.item.id} row={row} />)}</div>
+      </section>)}
+      {untracked.length > 0 && <section className="report-group">
+        <h2 className="untracked">Things sales don’t track</h2><p>Sales don’t count these, so there’s nothing to compare. This is how much we used.</p>
+        <ul className="report-untracked">{untracked.map((row) => <li key={row.item.id}><b>{row.item.name.trim()}</b> {row.missedDelivery ? <em>More than last week, but no delivery was entered. Was one missed?</em> : amountText(row.actual, row.item.countUnit)}</li>)}</ul>
+      </section>}
+      <section className="report-talk"><h2>Let’s talk about it</h2><ol><li>Which item surprised you?</li><li>Why do you think we used more (or less) of it?</li><li>What is one thing we can do next week to get closer?</li></ol></section>
+    </article>
+  </div>, document.body);
+}
+
+function OverUnderCard({ row }) {
+  const unit = row.item.countUnit;
+  const top = Math.max(row.expected, row.actual, 0.01);
+  const width = (value) => `${Math.max(0, Math.min(100, (value / top) * 100))}%`;
+  const sentence = row.status === 'right' ? 'Right on track.'
+    : `We used ${amountText(row.difference, unit)} ${row.status === 'more' ? 'more' : 'less'} than expected${row.expected > 0 ? ` (${Math.round(Math.abs(row.difference) / row.expected * 100)}%)` : ''}.`;
+  return <div className={`report-card ${row.status}`}>
+    <h3>{row.item.name.trim()}</h3>
+    <div className="report-bars">
+      <span>Recipes say</span><div><i style={{ width: width(row.expected) }} /></div><b>{amountText(row.expected, unit)}</b>
+      <span>We used</span><div><i className="used" style={{ width: width(row.actual) }} /></div><b>{row.actual < 0 ? '?' : amountText(row.actual, unit)}</b>
+    </div>
+    <p className="report-sentence">{sentence}</p>
+    {row.missedDelivery && <p className="report-flag">There’s more on the shelf than last week, but no delivery was entered. Was a delivery missed?</p>}
+    {row.unconverted && <p className="report-note">Some recipe amounts for this item can’t be counted yet, so “Recipes say” is low.</p>}
+    {STAFF_REASONS.includes(row.reason) && <p className="report-note">Staff note from the count: {row.reason}</p>}
+    {OVER_UNDER_HINTS[row.status] && !row.missedDelivery && <div className="report-hints"><b>Maybe:</b><ul>{OVER_UNDER_HINTS[row.status].map((hint) => <li key={hint}>{hint}</li>)}</ul></div>}
+  </div>;
 }
 
 // Bakery made / sold / excess per open day, to settle how many to make.
@@ -841,25 +927,6 @@ function PinPanel({ state, setState, staffName }) {
     </div>
     <div className="backup-actions"><button className="button secondary" onClick={() => { setMessage(''); setOpen(true); }}>Change PIN</button></div>
     {open && <ChangePinModal pinHash={state.staffPinHash} onSave={save} onClose={() => setOpen(false)} />}
-  </section>;
-}
-
-// Before going live: wipe practice sales, inventory events and counts, keeping the setup.
-function PracticePanel({ state, setState }) {
-  const [message, setMessage] = useState('');
-  const events = state.inventoryEvents.filter((event) => event.type !== 'opening').length;
-  const clear = () => {
-    if (!window.confirm(`Erase all ${state.sales.length} sales, ${events} inventory events and ${state.countSessions.length} counts on this iPad? Menu, prices, recipes, inventory items and units, the PIN and settings are kept. This cannot be undone, so save a Full backup first if you might want them.`)) return;
-    setState(clearPractice);
-    setMessage('Practice data cleared. Do your starting inventory count next.');
-  };
-  return <section className="backup-panel practice-panel">
-    <div>
-      <h3>Clear practice data</h3>
-      <p>For testing before going live. Erases sales, inventory events (restocks, waste, remakes, excess bakery items) and counts. Keeps menu, prices, recipes, inventory items and units, the PIN and settings.</p>
-      {message && <p className="backup-message" role="status">{message}</p>}
-    </div>
-    <div className="backup-actions"><button className="button secondary" onClick={clear} disabled={!state.sales.length && !events && !state.countSessions.length}>Clear practice data</button></div>
   </section>;
 }
 

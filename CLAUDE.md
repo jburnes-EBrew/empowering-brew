@@ -19,12 +19,12 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 ## Layout
 
 - `src/App.jsx` — student sales screen: HOT/ICED tabs, drink buttons, the drink box (`DrinkPicker`: flavor → green "No changes — record drink" or Take off / Add or swap → blue record button), Student drink and Decaf toggles (next drink only), Undo, Count screen.
-- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports holds the Backups, Staff PIN and Clear practice data panels, then the Reorder list, Weekly sales, Bakery items and Busy times.
+- `src/staff.jsx` — Staff workspace tabs: Products, Recipes, Inventory, Reports, History. Reports holds the Backups and Staff PIN panels, then the Reorder list, Weekly over/under, Weekly sales, Bakery items and Busy times.
 - `src/data.js` — seed menu, products, recipes, inventory, `SHOP_HOURS`, `SCHEMA_VERSION`.
 - `src/estimates.js` — recipe usage estimates, drink changes (`changeChoices`, `withChanges`, `latteAdditions`), inventory balances, reorder/weekly/bakery/busy-time reports.
 - `src/updates.js` — one-time data updates applied on load (`applyUpdates`).
 - `src/storage.js` — IndexedDB persistence (localStorage fallback), schema migration, PIN hashing.
-- `src/backup.js` — sales CSV, full JSON backup/restore, daily reminder, `clearPractice`.
+- `src/backup.js` — sales CSV, full JSON backup/restore, daily reminder.
 - `public/sw.js` — service worker (network-first).
 
 ## Rules that matter
@@ -38,14 +38,15 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 - **Bakery excess** is an inventory event `type: 'bakery-excess'` with `count` and `forDate`; it has no `itemId`, so it doesn't touch balances.
 - **Packaging:** each bakery treat sale uses 1 sweet treat sleeve + 1 small sticker (the treat itself is an excluded line). Every hot drink with a hot cup sleeve also uses 1 large sticker. Stickers are counted by the sheet: large = 6 per sheet; small stickers per sheet is still unknown.
 - **Par:** `item.full` is par. Below-par items show "Need N more to reach par" (not "Below par", which staff misread as a count). The Reorder list in Reports lists them with Need and Order (rounded up to whole count units) and downloads as CSV for the person who orders.
+- **Weekly over/under** (`overUnderReport`): per item in a finalized count, real use since its last count (last count + restocks − this count) vs. recipe use from sales plus recorded waste. Items whose last count was the opening balance are skipped, so the first report comes after the second real count. About right = within 10% or a quarter unit. Real use below zero flags a likely missed delivery. The student page ("How did we do this week?") is portaled to `<body>` so it prints alone; it's for teaching, so keep its wording plain.
 - **Deliveries:** Inventory → Record delivery enters a packing slip at once; each line is a `restock` event (shared `deliveryId`, note "Delivery: …") that adds to the estimate. It is not a count.
 - **Counts are in each item's count unit** (`countUnit`), e.g. sweet treat sleeves are counted one by one, coffee by the bag.
 - **Keep the printable guides in sync.** When app behavior or screens change, update the guides in `Guides/` (Getting Started, App Tour, Backup & Restore, and the Student Guide, which is written for students with varying support needs: short steps, pictures, plain words).
-- **Go-live:** practice data was cleared and the baseline inventory count done on Nov 4, 2026; real tracking starts Nov 5, 2026. Don't suggest clearing data again unless asked.
+- **Go-live:** practice data was cleared and the baseline inventory count done on Nov 4, 2026; real tracking starts Nov 5, 2026. The Clear practice data button was then removed; the app is in production, so don't add data-wiping tools back.
 - **Out of scope for now:** drink-ticket printing is on hold for budget. Don't build it.
 
 ## Style
 
 - Match the existing code: small components in the same file, short comments that explain *why*, plain-language UI text written for students and staff, not developers.
-- UI wording in the app and the guides should agree (for example "No changes — record drink", "Excess bakery items", "Clear practice data").
+- UI wording in the app and the guides should agree (for example "No changes — record drink", "Excess bakery items", "Weekly over/under").
 - Commit messages end with the project's Co-Authored-By trailer.

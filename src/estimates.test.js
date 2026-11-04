@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cloneInitialState } from './data';
-import { bakeryReport, reorderList, busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
+import { bakeryReport, finalizedCounts, overUnderReport, reorderList, busyTimes, clockLabel, estimateUsage, inventoryBalances, weeklyReport } from './estimates';
 import { migrate } from './storage';
 
 const configured = () => {
@@ -151,5 +151,50 @@ describe('busy times', () => {
     const late = busyTimes([at('2026-11-02T11:10:00'), at('2026-11-02T14:20:00')], 30, hours);
     expect(labels(late)[0]).toBe('10:00 AM');
     expect(labels(late).at(-1)).toBe('2:00 PM');
+  });
+});
+
+describe('weekly over/under', () => {
+  const count = (session, itemId, countedValue, at, reason = 'Use the count (no reason)') => ({ id: `${session}-${itemId}`, type: 'count', countSessionId: session, itemId, itemName: itemId, countedValue, at, reason });
+  const week = () => {
+    const { state } = configured();
+    state.inventoryEvents.push(
+      count('baseline', 'whole-milk', 3, '2026-11-04T15:00:00.000Z', 'Starting count'),
+      count('baseline', 'napkins', 4, '2026-11-04T15:00:00.000Z', 'Starting count'),
+      count('baseline', 'vanilla-syrup', 1, '2026-11-04T15:00:00.000Z', 'Starting count'),
+      { id: 'd1', type: 'restock', itemId: 'whole-milk', quantity: 4, at: '2026-11-06T15:00:00.000Z' },
+      count('week', 'whole-milk', 4, '2026-11-11T15:00:00.000Z'),
+      count('week', 'napkins', 3, '2026-11-11T15:00:00.000Z'),
+      count('week', 'vanilla-syrup', 2, '2026-11-11T15:00:00.000Z', 'Unrecorded restock'),
+    );
+    const sale = (id, soldAt, usage) => ({ id, soldAt, usage, productName: 'Panther Paw', estimateStatus: 'complete' });
+    state.sales = [
+      sale('s1', '2026-11-05T16:00:00.000Z', [{ itemId: 'whole-milk', unit: 'oz', quantity: 128 }, { itemId: 'vanilla-syrup', unit: 'oz', quantity: 5 }]),
+      sale('s2', '2026-11-06T16:00:00.000Z', [{ itemId: 'whole-milk', unit: 'oz', quantity: 128 }]),
+      { ...sale('s3', '2026-11-06T16:05:00.000Z', [{ itemId: 'whole-milk', unit: 'oz', quantity: 128 }]), voidedAt: '2026-11-06T16:05:05.000Z' },
+    ];
+    return state;
+  };
+
+  it('lists finalized counts newest first and skips items only compared with the opening balance', () => {
+    const state = week();
+    expect(finalizedCounts(state).map((session) => session.id)).toEqual(['week', 'baseline']);
+    const baseline = overUnderReport(state, 'baseline');
+    expect(baseline.items).toEqual([]);
+    expect(baseline.firstCounts).toBe(3);
+  });
+
+  it('compares real use with what the recipes say, counting deliveries', () => {
+    const report = overUnderReport(week(), 'week');
+    expect(report.sold).toBe(2);
+    const milk = report.items.find((row) => row.item.id === 'whole-milk');
+    expect(milk).toMatchObject({ start: 3, delivered: 4, counted: 4, expected: 2, actual: 3, difference: 1, status: 'more', missedDelivery: false });
+  });
+
+  it('flags a likely missed delivery and items sales do not track', () => {
+    const report = overUnderReport(week(), 'week');
+    const vanilla = report.items.find((row) => row.item.id === 'vanilla-syrup');
+    expect(vanilla).toMatchObject({ expected: 0.2, actual: -1, status: 'less', missedDelivery: true, reason: 'Unrecorded restock' });
+    expect(report.items.find((row) => row.item.id === 'napkins')).toMatchObject({ actual: 1, status: 'untracked' });
   });
 });
