@@ -841,7 +841,7 @@ function HistoryTab({ state }) {
   const shown = records.filter((record) => filter === 'all' || record.kind === filter);
   return <>
     <SectionHeading title="History" description="Everything recorded on this iPad. Nothing is deleted; undone sales are kept and marked." />
-    <div className="filter-chips">{['all', 'Sale', 'Inventory', 'Count', 'Recipe'].map((name) => <button key={name} className={`chip ${filter === name ? 'selected' : ''}`} onClick={() => setFilter(name)}>{name === 'all' ? 'All' : `${name}s`}</button>)}</div>
+    <div className="filter-chips">{['all', 'Sale', 'Inventory', 'Count', 'Recipe'].map((name) => <button key={name} className={`chip ${filter === name ? 'selected' : ''}`} onClick={() => setFilter(name)}>{name === 'all' ? 'All' : name === 'Inventory' ? name : `${name}s`}</button>)}</div>
     {!shown.length ? <div className="empty-state"><CupLogo size={54} /><h3>No activity yet</h3><p>Sales, inventory events, counts, and recipe changes will appear here.</p></div>
       : <div className="history-list">{shown.slice(0, limit).map((record, index) => <div className={`history-row ${record.voided ? 'voided' : ''}`} key={`${record.kind}-${record.time}-${index}`}><span className="history-kind">{record.kind}</span><span><strong>{record.title}</strong><small>{record.detail}</small></span><time>{timeLabel(record.time)}</time></div>)}
         {shown.length > limit && <button className="button secondary full-button" onClick={() => setLimit(limit + 150)}>Show more</button>}</div>}
