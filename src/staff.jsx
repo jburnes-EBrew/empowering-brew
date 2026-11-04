@@ -836,6 +836,22 @@ function OverUnder({ state, section }) {
   </ReportSection>;
 }
 
+// A full-screen page to print or save as a PDF (on the iPad: Print, then the Share button
+// in the print screen saves to Files or sends by Mail). It is rendered straight into <body>
+// so printing hides the app behind it, and the page title names the saved PDF.
+function PrintPage({ label, fileTitle, onClose, children }) {
+  useEffect(() => {
+    const before = document.title;
+    document.title = fileTitle;
+    return () => { document.title = before; };
+  }, [fileTitle]);
+  return createPortal(<div className="report-page" role="dialog" aria-modal="true" aria-label={label}>
+    <div className="report-page-tools no-print"><button className="button secondary" onClick={onClose}><BackIcon size={20} /> Back to Reports</button><button className="button primary" onClick={() => window.print()}><DownloadIcon size={20} /> Print or save PDF</button></div>
+    {children}
+  </div>, document.body);
+}
+const SheetLogo = () => <img src={`${import.meta.env.BASE_URL}brand/empowering-brew-logo.png`} alt="Empowering Brew" />;
+
 const WORK_ON_SHOWN = 5; // keeps Things to Work On to one printed page
 
 function OverUnderPage({ report, onClose }) {
@@ -845,10 +861,8 @@ function OverUnderPage({ report, onClose }) {
   const workOn = report.items.filter(isWorkOn).sort((a, b) => b.missedDelivery - a.missedDelivery || (b.percent ?? 999) - (a.percent ?? 999));
   const supplies = report.items.filter((row) => row.status === 'untracked' && row.actual > 0).sort(byName);
   const dates = <p>From the count on <b>{weekdayDate(report.since)}</b> to the count on <b>{weekdayDate(report.at)}</b></p>;
-  const logo = <img src={`${import.meta.env.BASE_URL}brand/empowering-brew-logo.png`} alt="Empowering Brew" />;
-  // Rendered straight into <body> so printing can hide the app behind it.
-  return createPortal(<div className="report-page" role="dialog" aria-modal="true" aria-label="Weekly over/under report">
-    <div className="report-page-tools no-print"><button className="button secondary" onClick={onClose}><BackIcon size={20} /> Back to Reports</button><button className="button primary" onClick={() => window.print()}>Print</button></div>
+  const logo = <SheetLogo />;
+  return <PrintPage label="Weekly over/under report" fileTitle={`Empowering Brew weekly over-under ${dateStamp(new Date(report.at))}`} onClose={onClose}>
     <article className="report-sheet celebrate-sheet">
       <header className="report-sheet-head">{logo}<div><h1>Celebrations</h1>{dates}</div></header>
       <p className="report-banner">We served <b>{report.sold}</b> drinks and treats this week!</p>
@@ -884,22 +898,47 @@ function OverUnderPage({ report, onClose }) {
       <div className="report-flag"><b>Did you forget to ring it in?</b> Tap every drink and treat on the iPad, even when it’s busy. Spills, remakes and deliveries get entered too.</div>
       {supplies.length > 0 && <p className="report-note">Supplies sales don’t track, used this week: {supplies.map((row) => `${row.item.name.trim()} ${amountText(row.actual, row.item.countUnit)}`).join(' · ')}</p>}
     </article>
-  </div>, document.body);
+  </PrintPage>;
 }
 
 // Bakery made / sold / excess per open day, to settle how many to make.
 function BakeryTable({ state, report, showDays, weekNav, section }) {
   const bakery = useMemo(() => bakeryReport(state, report), [state, report]);
+  const [printing, setPrinting] = useState(false);
   const sum = (list) => list.reduce((total, value, index) => total + (showDays[index] ? value : 0), 0);
   const row = (label, list, strong = false) => <tr><td>{label}</td>{list.map((count, index) => showDays[index] && <td key={index}>{strong ? <strong>{count || ''}</strong> : count || ''}</td>)}<td><strong>{sum(list)}</strong></td></tr>;
-  return <ReportSection {...section} title="Bakery items" summary={`Week of ${dayLabel(report.start)} · ${sum(bakery.sold)} sold · ${sum(bakery.excess)} to staff`} description="Sold at the register plus excess moved to the staff offer (Inventory → Excess bakery items). Made is the two added together; use it to find the right number to make each day.">
+  return <ReportSection {...section} title="Bakery items" summary={`Week of ${dayLabel(report.start)} · ${sum(bakery.sold)} sold · ${sum(bakery.excess)} to staff`} description="Sold at the register plus excess moved to the staff offer (Inventory → Excess bakery items). Made is the two added together; use it to find the right number to make each day. Print or save it as a PDF to send to the baker." action={<button className="button secondary" onClick={() => setPrinting(true)}><DownloadIcon size={20} /> Print or save PDF</button>}>
     {weekNav}
     <div className="table-scroll"><table className="report-table">
       <thead><tr><th>Bakery</th>{WEEKDAYS.map((day, index) => showDays[index] && <th key={day}>{day}</th>)}<th>Total</th></tr></thead>
       <tbody>{row('Sold', bakery.sold)}{row('Excess (to staff)', bakery.excess)}</tbody>
       <tfoot>{row('Made', bakery.made)}</tfoot>
     </table></div>
+    {printing && <BakeryPrint report={report} bakery={bakery} showDays={showDays} onClose={() => setPrinting(false)} />}
   </ReportSection>;
+}
+
+// One week of bakery numbers on a page for the baker. A day with sales and no extras may
+// have sold out, so it's marked: that day's real demand could be higher.
+function BakeryPrint({ report, bakery, showDays, onClose }) {
+  const days = WEEKDAYS.map((day, index) => ({ day, index, date: new Date(report.start.getFullYear(), report.start.getMonth(), report.start.getDate() + index) })).filter(({ index }) => showDays[index]);
+  const total = (list) => days.reduce((sum, { index }) => sum + list[index], 0);
+  const soldOut = days.filter(({ index }) => bakery.sold[index] > 0 && !bakery.excess[index]);
+  const average = (list) => days.length ? formatNumber(Math.round(total(list) / days.length * 10) / 10) : '—';
+  const row = (label, list, className = '') => <tr className={className}><th scope="row">{label}</th>{days.map(({ index }) => <td key={index}>{list[index]}{list === bakery.sold && soldOut.some((day) => day.index === index) ? '*' : ''}</td>)}<td>{total(list)}</td><td>{average(list)}</td></tr>;
+  return <PrintPage label="Bakery items for the baker" fileTitle={`Empowering Brew bakery items week of ${dateStamp(report.start)}`} onClose={onClose}>
+    <article className="report-sheet plain-sheet">
+      <header className="report-sheet-head"><SheetLogo /><div><h1>Bakery Items</h1><p>Week of <b>{dayLabel(report.start)}</b> · open days only</p></div></header>
+      <p className="report-lede">How many bakery treats we sold each day, and how many were left over and offered to staff. <b>Made</b> is the two added together.</p>
+      <table className="print-table">
+        <thead><tr><th />{days.map(({ day, index, date }) => <th key={index}>{day}<small>{dayLabel(date)}</small></th>)}<th>Week total</th><th>Average per day</th></tr></thead>
+        <tbody>{row('Sold', bakery.sold)}{row('Left over (to staff)', bakery.excess)}</tbody>
+        <tfoot>{row('Made', bakery.made, 'made')}</tfoot>
+      </table>
+      {soldOut.length > 0 && <p className="report-note">* No leftovers recorded on {soldOut.map(({ day }) => day).join(', ')}. We may have sold out, so more could have sold.</p>}
+      <div className="print-notes"><b>Notes</b><span /><span /><span /></div>
+    </article>
+  </PrintPage>;
 }
 
 // When drinks are ordered, for staffing and prep. Every sale already records its time.
@@ -920,19 +959,31 @@ function BusyTimes({ state, section }) {
   const days = WEEKDAYS.map((_, index) => SHOP_HOURS.days.includes(index));
   const shade = (count) => count ? { background: `rgba(4, 107, 177, ${0.12 + 0.78 * count / busy.max})`, color: count / busy.max > 0.5 ? 'white' : undefined } : undefined;
   const chip = (on, label, onClick) => <button type="button" className={`chip ${on ? 'selected' : ''}`} aria-pressed={on} onClick={onClick}>{label}</button>;
-  return <ReportSection {...section} title="Busy times" summary={busy.busiest ? `Busiest (${BUSY_SCOPES.find(([key]) => key === scope)[1].toLowerCase()}): ${WEEKDAYS[busy.busiest.day]}${start ? '' : 's'}, ${clockLabel(busy.busiest.startMinutes)}` : 'No sales yet'}>
+  const [printing, setPrinting] = useState(false);
+  const scopeLabel = BUSY_SCOPES.find(([key]) => key === scope)[1];
+  const busiest = busy.busiest && <>Busiest: <strong>{WEEKDAYS[busy.busiest.day]}{start ? '' : 's'}, {clockLabel(busy.busiest.startMinutes)}–{clockLabel(busy.busiest.startMinutes + slotMinutes)}</strong> · {busy.busiest.count} sold{start ? '' : ' across all weeks'}</>;
+  const table = <table className="report-table busy-table">
+    <thead><tr><th>Time</th>{WEEKDAYS.map((day, index) => days[index] && <th key={day}>{day.slice(0, 3)}</th>)}<th>Total</th></tr></thead>
+    <tbody>{busy.slots.map((slot) => <tr key={slot.startMinutes}><td>{clockLabel(slot.startMinutes)}</td>{slot.days.map((count, index) => days[index] && <td key={index} style={shade(count)}>{count || ''}</td>)}<td><strong>{slot.total || ''}</strong></td></tr>)}</tbody>
+  </table>;
+  return <ReportSection {...section} action={<button className="button secondary" onClick={() => setPrinting(true)} disabled={!busy.slots.length}><DownloadIcon size={20} /> Print or save PDF</button>} title="Busy times" summary={busy.busiest ? `Busiest (${BUSY_SCOPES.find(([key]) => key === scope)[1].toLowerCase()}): ${WEEKDAYS[busy.busiest.day]}${start ? '' : 's'}, ${clockLabel(busy.busiest.startMinutes)}` : 'No sales yet'}>
     <p className="subheading-help">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}, by the time they were rung up. Darker squares are busier; use them to plan who works when and when to prep. Free student drinks are left out. Shows open hours (10 AM–2 PM, Mon, Tue, Thu, Fri); a sale outside those hours adds its own row. Sales on closed days are left out.</p>
     <div className="filter-chips">
       {BUSY_SCOPES.map(([key, label]) => <React.Fragment key={key}>{chip(scope === key, label, () => setScope(key))}</React.Fragment>)}<span className="chip-gap" aria-hidden="true" />
       {chip(slotMinutes === 30, 'Half hours', () => setSlotMinutes(30))}{chip(slotMinutes === 60, 'Hours', () => setSlotMinutes(60))}
     </div>
     {busy.slots.length ? <>
-      <p className="busy-summary">{start && <>Week of {dayLabel(start)} · </>}Busiest: <strong>{WEEKDAYS[busy.busiest.day]}{start ? '' : 's'}, {clockLabel(busy.busiest.startMinutes)}–{clockLabel(busy.busiest.startMinutes + slotMinutes)}</strong> · {busy.busiest.count} sold{start ? '' : ' across all weeks'}</p>
-      <div className="table-scroll"><table className="report-table busy-table">
-        <thead><tr><th>Time</th>{WEEKDAYS.map((day, index) => days[index] && <th key={day}>{day.slice(0, 3)}</th>)}<th>Total</th></tr></thead>
-        <tbody>{busy.slots.map((slot) => <tr key={slot.startMinutes}><td>{clockLabel(slot.startMinutes)}</td>{slot.days.map((count, index) => days[index] && <td key={index} style={shade(count)}>{count || ''}</td>)}<td><strong>{slot.total || ''}</strong></td></tr>)}</tbody>
-      </table></div>
+      <p className="busy-summary">{start && <>Week of {dayLabel(start)} · </>}{busiest}</p>
+      <div className="table-scroll">{table}</div>
     </> : <p className="subheading-help">{{ this: 'No sales this week yet.', last: `No sales last week (week of ${start && dayLabel(start)}).`, all: 'No sales recorded yet.' }[scope]}</p>}
+    {printing && <PrintPage label="Busy times" fileTitle={`Empowering Brew busy times ${start ? `week of ${dateStamp(start)}` : 'all weeks'}`} onClose={() => setPrinting(false)}>
+      <article className="report-sheet plain-sheet">
+        <header className="report-sheet-head"><SheetLogo /><div><h1>Busy Times</h1><p><b>{start ? `${scopeLabel} (week of ${dayLabel(start)})` : 'All weeks'}</b> · by {slotMinutes === 30 ? 'half hour' : 'hour'}</p></div></header>
+        <p className="report-lede">Drinks and treats sold in each {slotMinutes === 30 ? 'half hour' : 'hour'}. Darker squares are busier. {busiest}</p>
+        {table}
+        <p className="report-note">Open hours: 10 AM–2 PM, Mon, Tue, Thu, Fri. Free student drinks and sales on closed days are left out.</p>
+      </article>
+    </PrintPage>}
   </ReportSection>;
 }
 

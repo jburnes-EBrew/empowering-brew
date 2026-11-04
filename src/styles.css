@@ -477,6 +477,18 @@ h1, h2, h3 { color: var(--headers); }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
+/* Printouts for the baker and for scheduling (Bakery items, Busy times). */
+.plain-sheet .report-sheet-head { border-bottom-color: var(--brand-navy); }
+.print-table { width: 100%; border-collapse: collapse; font-size: 1.1rem; margin-top: 8px; }
+.print-table th, .print-table td { border: 1px solid var(--line); padding: 10px 12px; text-align: center; }
+.print-table thead th { background: var(--iced-soft); color: var(--headers); }
+.print-table thead th small { display: block; font-weight: 500; color: var(--muted); }
+.print-table tbody th, .print-table tfoot th { text-align: left; color: var(--headers); }
+.print-table tr.made { background: var(--highlight-soft); font-weight: 800; }
+.plain-sheet .busy-table { width: 100%; }
+.print-notes { margin-top: 26px; display: grid; gap: 26px; color: var(--headers); }
+.print-notes span { border-bottom: 1px solid var(--muted); }
+
 /* Reports fold up: a big tap target with an arrow, the title and a one-line summary. */
 .report-list-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 8px 0 12px; }
 .report-list-head h2 { margin: 0; font-size: clamp(1.8rem, 3vw, 2.5rem); letter-spacing: -.035em; }
