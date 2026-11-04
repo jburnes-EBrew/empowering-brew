@@ -16,7 +16,7 @@ All data is stored on the device (browser storage). Each iPad keeps its own reco
 
 ## Backups
 
-- **Daily reminder:** after 3 PM (staff can change the time), if there are sales that have not been backed up, a **Save backup** button appears on the sales screen. One tap opens the iPad share sheet: choose **Save to Files**, Google Drive, AirDrop, or Mail. The file is a CSV of every sale to date, so any single backup is complete. A missed day keeps reminding until a backup is saved.
+- **Daily reminder:** after 2:15 PM, just after closing (staff can change the time), if there are sales that have not been backed up, a **Save backup** button appears on the sales screen. One tap opens the iPad share sheet: choose **Save to Files**, Google Drive, AirDrop, or Mail. The file is a CSV of every sale to date, so any single backup is complete. A missed day keeps reminding until a backup is saved.
 - **Staff → Reports → Backups:** save the sales CSV, save a **full backup** (sales, recipes, inventory, counts, settings), or **restore** a full backup onto this or another iPad.
 - Browsers cannot download files on a schedule or while the app is closed, so the backup needs one tap.
 
