@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { cloneInitialState } from './data';
+import { cloneInitialState, fixed, line } from './data';
 import { EXTRA_SHOT, SOY_MILK, changeChoices, latteAdditions, currentRecipe, estimateUsage, inventoryBalances, withChanges } from './estimates';
 import { migrate } from './storage';
-import { ANSWERS_UPDATE, MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, TREAT_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applyWorksheetUpdate } from './updates';
+import { ANSWERS_UPDATE, MONTHLY_UPDATE, SLEEVE_STICKER_UPDATE, SPECIAL_BUTTON_UPDATE, TREAT_UPDATE, VANILLA_UPDATE, WORKSHEET_UPDATE, applyAnswersUpdate, applySleeveStickerUpdate, applyWorksheetUpdate } from './updates';
 
 const fresh = () => migrate(cloneInitialState('2026-10-01T00:00:00.000Z'));
 const product = (state, id) => state.products.find((entry) => entry.id === id);
@@ -12,7 +12,7 @@ const used = (estimate) => Object.fromEntries(estimate.usage.map((use) => [use.i
 describe('worksheet and owner-answer updates', () => {
   it('keeps the card and worksheet versions as history', () => {
     const versions = fresh().recipes.filter((recipe) => recipe.recipeKey === 'panther-paw-hot');
-    expect(versions.map((recipe) => [recipe.versionLabel, !!recipe.supersededAt])).toEqual([['Recipe cards v1', true], ['Setup worksheet (Oct 2026)', true], ['Owner answers (Oct 2026)', false]]);
+    expect(versions.map((recipe) => [recipe.versionLabel, !!recipe.supersededAt])).toEqual([['Recipe cards v1', true], ['Setup worksheet (Oct 2026)', true], ['Owner answers (Oct 2026)', true], ['Sleeve sticker added (Nov 2026)', false]]);
   });
 
   it('gives every signature drink a complete estimate', () => {
@@ -119,7 +119,7 @@ describe('monthly special', () => {
     const state = fresh();
     const renamed = { ...state, settings: { ...state.settings, monthlySpecial: 'Peppermint' } };
     expect(migrate(renamed)).toEqual(renamed);
-    expect(renamed.settings.appliedUpdates.slice(-4)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, TREAT_UPDATE]);
+    expect(renamed.settings.appliedUpdates.slice(-5)).toEqual([MONTHLY_UPDATE, SPECIAL_BUTTON_UPDATE, VANILLA_UPDATE, TREAT_UPDATE, SLEEVE_STICKER_UPDATE]);
   });
 });
 
@@ -155,6 +155,22 @@ describe('bakery treat recipe', () => {
     const sticker = (id) => state.inventory.find((item) => item.id === id);
     expect(sticker('stickers-large')).toMatchObject({ countUnit: 'sheet', usageUnit: 'each', usagePerCount: 6 });
     expect(sticker('stickers-small')).toMatchObject({ countUnit: 'sheet', usagePerCount: null });
+  });
+});
+
+describe('sleeve stickers', () => {
+  it('adds one large sticker to every hot drink with a sleeve, and none to iced drinks', () => {
+    const state = fresh();
+    const stickers = (id) => estimateUsage(recipeFor(state, id), state.inventory, null).usage.filter((use) => use.itemId === 'stickers-large').length;
+    for (const id of ['panther-paw-hot', 'latte-plain-hot', 'latte-flavored-hot', 'black-coffee-hot', 'hot-tea']) expect(stickers(id)).toBe(1);
+    for (const id of ['panther-paw-iced', 'latte-plain-iced', 'espresso-hot']) expect(stickers(id)).toBe(0);
+  });
+
+  it('leaves recipes staff saved alone', () => {
+    const sleeve = { ...line('sleeve', 'consumable', 'Hot cup sleeve', fixed(1), 'each', 'hot-sleeves'), itemConfirmed: true };
+    const recipe = { recipeKey: 'x', versionId: 'x1', version: 1, supersededAt: null, savedBy: 'Staff', lines: [sleeve] };
+    const after = applySleeveStickerUpdate({ recipes: [recipe], settings: { appliedUpdates: [] } });
+    expect(after.recipes).toEqual([recipe]);
   });
 });
 

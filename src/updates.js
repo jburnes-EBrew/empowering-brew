@@ -412,4 +412,27 @@ export function applyTreatUpdate(state, now = new Date().toISOString()) {
   return { ...state, products, recipes, inventory, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), TREAT_UPDATE] } };
 }
 
-export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate, applyVanillaUpdate, applyTreatUpdate].reduce((next, update) => update(next, now), state);
+// The owner said each hot cup sleeve gets a large sticker. App-supplied recipes that use a
+// hot sleeve get a new version with one large sticker; recipes staff saved are left alone.
+export const SLEEVE_STICKER_UPDATE = 'sleeve-sticker-2026-11';
+const SLEEVE_STICKER_LABEL = 'Sleeve sticker added (Nov 2026)';
+
+export function applySleeveStickerUpdate(state, now = new Date().toISOString()) {
+  if (state.settings?.appliedUpdates?.includes(SLEEVE_STICKER_UPDATE)) return state;
+  const supersede = new Set();
+  const added = [];
+  for (const recipe of state.recipes) {
+    if (recipe.supersededAt || recipe.savedBy) continue;
+    const at = recipe.lines.findIndex((entry) => entry.itemId === 'hot-sleeves' && !entry.excluded);
+    if (at < 0 || recipe.lines.some((entry) => entry.itemId === 'stickers-large')) continue;
+    const sticker = confirmed(line('sleeve-sticker', 'consumable', 'Large Empowering Brew sticker (on the sleeve)', fixed(1), 'each', 'stickers-large'));
+    supersede.add(recipe.versionId);
+    added.push({ ...recipe, versionId: `${recipe.recipeKey}-sticker-v${recipe.version + 1}`, version: recipe.version + 1, versionLabel: SLEEVE_STICKER_LABEL, effectiveFrom: now,
+      changeNote: 'Each hot cup sleeve gets one large sticker.',
+      lines: [...recipe.lines.slice(0, at + 1), sticker, ...recipe.lines.slice(at + 1)] });
+  }
+  const recipes = [...state.recipes.map((recipe) => supersede.has(recipe.versionId) ? { ...recipe, supersededAt: now } : recipe), ...added];
+  return { ...state, recipes, settings: { ...state.settings, appliedUpdates: [...(state.settings?.appliedUpdates || []), SLEEVE_STICKER_UPDATE] } };
+}
+
+export const applyUpdates = (state, now) => [applyWorksheetUpdate, applyAnswersUpdate, applyMonthlySpecialUpdate, applySpecialButtonUpdate, applyVanillaUpdate, applyTreatUpdate, applySleeveStickerUpdate].reduce((next, update) => update(next, now), state);
