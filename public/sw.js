@@ -1,4 +1,4 @@
-const CACHE = 'empowering-brew-v31';
+const CACHE = 'empowering-brew-v32';
 const APP_SHELL = ['./', './manifest.webmanifest', './icon-192.png', './brand/header-lockup.png'];
 
 self.addEventListener('install', (event) => {

@@ -45,6 +45,8 @@
   .link { border: 0; background: none; color: var(--danger); font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; padding: 6px; }
   .muted { color: var(--muted); }
   .hidden { display: none; }
+  .credit { margin: 28px 0 0; text-align: center; color: var(--muted); font-size: .8rem; letter-spacing: .02em; }
+  .credit a { color: var(--blue); font-weight: 700; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -83,6 +85,8 @@
     </div>
   </section>
 
+  <!-- The page runs inside Google's frame, so the mail link opens outside it. -->
+  <p class="credit">Created by Jennifer Burnes. Questions or problems? Reach out: <a href="mailto:jennifer.burnes@usd497.org?subject=Empowering%20Brew%20online%20orders" target="_blank">jennifer.burnes@usd497.org</a></p>
 </main>
 <script>
   const STATUS = {
