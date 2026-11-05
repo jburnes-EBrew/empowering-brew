@@ -14,6 +14,10 @@ Created by Jennifer Burnes. Questions or problems? Reach out: jennifer.burnes@us
 
 All data is stored on the device (browser storage). Each iPad keeps its own records.
 
+## Online orders (order ahead, pay at pickup)
+
+Staff order from a school-only page (usd497.org sign-in); the order pops up on the shop iPad with a chime; students make it; the teacher pays at pickup and a student taps **Paid — record sale**, which records it like any sale. Orders are kept in a Google Sheet through a small Apps Script project. Setup steps are in [`apps-script/README.md`](apps-script/README.md); on the iPad, connect it under **Staff → Reports → Online orders**.
+
 ## Backups
 
 - **Daily reminder:** after 2:15 PM, just after closing (staff can change the time), if there are sales that have not been backed up, a **Save backup** button appears on the sales screen. One tap opens the iPad share sheet: choose **Save to Files**, Google Drive, AirDrop, or Mail. The file is a CSV of every sale to date, so any single backup is complete. A missed day keeps reminding until a backup is saved.

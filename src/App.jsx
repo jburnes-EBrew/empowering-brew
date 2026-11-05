@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BackIcon, CheckIcon, ClipboardIcon, DownloadIcon, DrinkIcon, HeatIcon, LockIcon, MinusIcon, PlusIcon, SnowIcon, UndoIcon } from './icons';
 import { saveState, hashPin, uid } from './storage';
-import { changeChoices, currentRecipe, estimateUsage, latteAdditions, withChanges } from './estimates';
+import { changeChoices, currentRecipe } from './estimates';
 import { backupDue, dateStamp, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SPECIAL_MENU_ID } from './data';
-import { Brand, Credit, LogoFull, Modal, menuItemFor, oneLine, prettyTemperature, productLabel, productName, specialName, todayLabel } from './ui';
+import { Brand, Credit, LogoFull, Modal, oneLine, prettyTemperature, productLabel, specialName, todayLabel } from './ui';
+import { additionsFor, isDrink as isDrinkIn, makeSale, salesSlots } from './sales';
+import { NewOrderAlert, OrderBanner, OrdersButton, OrdersPanel, useOnlineOrders } from './onlineOrders';
 import StaffWorkspace from './staff';
+
+export { salesSlots };
 
 function App({ initialState }) {
   const [state, setState] = useState(initialState);
@@ -16,13 +20,15 @@ function App({ initialState }) {
   const [countOrigin, setCountOrigin] = useState('sales');
 
   useEffect(() => { saveState(state).then((saved) => setSaveFailed(!saved)); }, [state]);
+  const orders = useOnlineOrders(state, setState);
 
   const startCount = (origin) => { setCountOrigin(origin); setView('count'); };
 
   return <>
     {saveFailed && <p className="save-warning" role="alert">This iPad could not save the latest change. Go to Staff → Reports and tap Full backup now.</p>}
-    {view === 'sales' && <SalesScreen state={state} setState={setState} onStaff={() => setStaffGateOpen(true)} onCount={() => startCount('sales')} />}
-    {view === 'staff' && <StaffWorkspace state={state} setState={setState} staffName={staffName} onBack={() => setView('sales')} onStartCount={() => startCount('staff')} />}
+    {view === 'sales' && <SalesScreen state={state} setState={setState} orders={orders} onStaff={() => setStaffGateOpen(true)} onCount={() => startCount('sales')} />}
+    {view !== 'sales' && <OrderBanner orders={orders} onGo={view === 'staff' ? () => setView('sales') : null} />}
+    {view === 'staff' && <StaffWorkspace state={state} setState={setState} orders={orders} staffName={staffName} onBack={() => setView('sales')} onStartCount={() => startCount('staff')} />}
     {view === 'count' && <CountScreen state={state} setState={setState} countedBy={countOrigin === 'staff' ? staffName : ''} onDone={() => setView(countOrigin)} />}
     {staffGateOpen && <StaffGate pinHash={state.staffPinHash} initialName={staffName} onSaveHash={(staffPinHash) => setState((current) => ({ ...current, staffPinHash }))} onSuccess={(name) => { setStaffName(name); setStaffGateOpen(false); setView('staff'); }} onClose={() => setStaffGateOpen(false)} />}
   </>;
@@ -60,32 +66,14 @@ function StaffGate({ pinHash, initialName, onSaveHash, onSuccess, onClose }) {
   </Modal>;
 }
 
-// One grid position per menu item. Hot and iced variants of a drink share a
-// position, and a drink missing in the selected temperature leaves a blank tile,
-// so buttons never shift when students switch Hot / Iced.
-export function salesSlots(state, temperature) {
-  return state.menuItems.filter((entry) => entry.active).sort((a, b) => a.order - b.order).map((menuItem) => {
-    const variants = state.products.filter((product) => product.menuItemId === menuItem.id && product.active);
-    if (!variants.length) return null;
-    return { menuItem, product: variants.find((product) => product.temperature === temperature) || variants.find((product) => product.temperature === 'none') || null };
-  }).filter(Boolean);
-}
-
-// Decaf is rare, so it is a one-sale toggle rather than a question on every drink:
-// the coffee a decaf drink uses comes out of Coffee Decaf instead of Coffee Reg.
-function decafEstimate(estimate, inventory) {
-  const decafItem = inventory.find((item) => item.id === 'coffee-decaf');
-  if (!decafItem) return estimate;
-  return { ...estimate, usage: estimate.usage.map((use) => use.itemId === 'coffee-reg' ? { ...use, itemId: decafItem.id, itemName: decafItem.name } : use) };
-}
-
-function SalesScreen({ state, setState, onStaff, onCount }) {
+function SalesScreen({ state, setState, orders, onStaff, onCount }) {
   const [temperature, setTemperature] = useState('hot');
   const [message, setMessage] = useState('Ready to record a sale');
   const [optionProduct, setOptionProduct] = useState(null);
   const [lastSaleId, setLastSaleId] = useState(null);
   const [decaf, setDecaf] = useState(false);
   const [studentDrink, setStudentDrink] = useState(false);
+  const [ordersOpen, setOrdersOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(timer); }, []);
   const due = backupDue(state, now);
@@ -94,20 +82,11 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
   const columns = slots.length <= 12 ? 3 : 4;
   const rows = Math.max(4, Math.ceil(slots.length / columns));
 
-  const isDrink = (product) => menuItemFor(state, product)?.kind !== 'food';
+  const isDrink = (product) => isDrinkIn(state, product);
   const recordSale = (product, option = null, changes = []) => {
-    const recipe = currentRecipe(state.recipes, product.recipeKey);
     const madeDecaf = decaf && isDrink(product);
     const free = studentDrink && isDrink(product);
-    const special = product.menuItemId === SPECIAL_MENU_ID ? specialName(state) : '';
-    const baseEstimate = estimateUsage(withChanges(recipe, changes, additionsFor(product)), state.inventory, option);
-    const estimate = madeDecaf ? decafEstimate(baseEstimate, state.inventory) : baseEstimate;
-    const sale = {
-      id: uid('sale'), productId: product.id, menuItemId: product.menuItemId, productName: productName(state, product), sourceName: product.sourceName,
-      temperature: product.temperature, option, ...(changes.length ? { changes } : {}), ...(special ? { special } : {}), ...(madeDecaf ? { decaf: true } : {}),
-      ...(free ? { studentDrink: true } : {}), price: free ? 0 : product.price, soldAt: new Date().toISOString(),
-      recipeVersionId: recipe?.versionId || null, estimateStatus: estimate.status, usage: estimate.usage, gaps: estimate.gaps,
-    };
+    const sale = makeSale(state, product, option, changes, { decaf: madeDecaf, studentDrink: free });
     setState((current) => ({ ...current, sales: [...current.sales, sale] }));
     setLastSaleId(sale.id);
     if (madeDecaf) setDecaf(false);
@@ -115,19 +94,32 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
     setMessage(`${[productLabel(state, product), option, ...changes, madeDecaf && 'Decaf', free && 'Student drink ($0)'].filter(Boolean).join(' · ')} recorded`);
   };
 
+  // An online order is paid for at pickup and recorded like any sale, with the order's own
+  // flavor, changes and decaf. The Decaf and Student drink toggles are left for the next tapped drink.
+  const recordOrder = (order, { product, option, changes, decaf: orderDecaf }) => {
+    const sale = makeSale(state, product, option, changes, { decaf: orderDecaf, orderId: order.id });
+    setState((current) => ({ ...current, sales: [...current.sales, sale] }));
+    setLastSaleId(sale.id);
+    setMessage(`Online order for ${order.name}: ${[productLabel(state, product), option, ...changes, orderDecaf && 'Decaf'].filter(Boolean).join(' · ')} recorded`);
+    orders.setStatus(order, 'picked-up', { saleId: sale.id });
+    setOrdersOpen(false);
+  };
+
   // Every drink opens a picker for flavor and changes; food records in one tap.
-  const additionsFor = (product) => latteAdditions(currentRecipe(state.recipes, `latte-flavored-${product.temperature === 'iced' ? 'iced' : 'hot'}`));
   const selectProduct = (product) => {
     if (!isDrink(product)) return recordSale(product);
     const recipe = currentRecipe(state.recipes, product.recipeKey);
     const toppings = !product.options?.includes('No topping'); // plain lattes choose toppings as their option
-    const additions = additionsFor(product);
+    const additions = additionsFor(state, product);
     setOptionProduct({ product, choices: (option) => changeChoices(recipe, option, state.inventory, { toppings, additions }) });
   };
 
   // Undo only reaches the sale just recorded on this screen, and keeps it in the log as voided.
   const undo = () => {
     if (!lastSaleId) return;
+    // Undoing an online order's sale puts the order back on the list as ready.
+    const orderId = state.sales.find((sale) => sale.id === lastSaleId)?.orderId;
+    if (orderId) orders.setStatus({ id: orderId }, 'ready');
     setState((current) => ({ ...current, sales: current.sales.map((sale) => sale.id === lastSaleId ? { ...sale, voidedAt: new Date().toISOString() } : sale) }));
     setLastSaleId(null);
     setMessage('Last sale removed');
@@ -149,6 +141,7 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
       <Brand />
       <time>{todayLabel()}</time>
       <div className="topbar-actions">
+        {orders.enabled && <OrdersButton orders={orders} onOpen={() => setOrdersOpen(true)} />}
         {state.settings?.studentCounts && <button className="staff-button" onClick={onCount}><ClipboardIcon size={19} /> Count</button>}
         <button className="staff-button" onClick={onStaff}><LockIcon size={19} /> Staff</button>
       </div>
@@ -173,6 +166,8 @@ function SalesScreen({ state, setState, onStaff, onCount }) {
         <button className="undo-button" disabled={!lastSaleId} onClick={undo}><UndoIcon size={25} /> Undo</button>
       </div>
     </footer>
+    {ordersOpen && <OrdersPanel state={state} orders={orders} onRecord={recordOrder} onClose={() => setOrdersOpen(false)} />}
+    {!ordersOpen && !optionProduct && orders.alerts.length > 0 && <NewOrderAlert orders={orders} onShowAll={() => { orders.dismissAlerts(); setOrdersOpen(true); }} />}
     {optionProduct && <DrinkPicker title={productLabel(state, optionProduct.product)} options={optionProduct.product.options || []} choices={optionProduct.choices} onClose={() => setOptionProduct(null)} onRecord={(option, changes) => { recordSale(optionProduct.product, option, changes); setOptionProduct(null); }} />}
   </main>;
 }

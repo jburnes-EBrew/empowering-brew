@@ -26,6 +26,9 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 - `src/storage.js` — IndexedDB persistence (localStorage fallback), schema migration, PIN hashing.
 - `src/backup.js` — sales CSV, full JSON backup/restore, daily reminder.
 - `public/sw.js` — service worker (network-first).
+- `src/sales.js` — `makeSale` (every sale is built here, tapped or from an online order), `salesSlots`, decaf.
+- `src/orders.js` — online orders: the menu sent to the order page (`orderingMenu`), `orderSaleParts`, `callLink`. `src/onlineOrders.jsx` — polling hook, new-order popup, Orders panel, staff setup panel.
+- `apps-script/` — the Apps Script project for online orders (`Code.gs`, `Order.html`, `appsscript.json`, setup steps in its README). `src/appsScript.test.js` runs `Code.gs` against stand-in Google services.
 
 ## Rules that matter
 
@@ -44,6 +47,7 @@ Deploy = push to `main`; GitHub Actions publishes to Pages (`.github/workflows/d
 - **Counts are in each item's count unit** (`countUnit`), e.g. sweet treat sleeves are counted one by one, coffee by the bag.
 - **Keep the printable guides in sync.** When app behavior or screens change, update the guides in `Guides/` (Getting Started, App Tour, Backup & Restore, and the Student Guide, which is written for students with varying support needs: short steps, pictures, plain words).
 - **Go-live:** practice data was cleared and the baseline inventory count done on Nov 4, 2026; real tracking starts Nov 5, 2026. The Clear practice data button was then removed; the app is in production, so don't add data-wiping tools back.
+- **Online orders** (no payment): staff order from the Apps Script order page (usd497.org sign-in), orders sit in a Google Sheet, and the iPad polls the "iPad link" deployment every 15 s during shop hours with a secret key (`settings.onlineOrders`: `url`, `key`, `enabled`, `paused`). Orders stay in memory on the iPad and are never saved state; only **Paid — record sale** writes anything, via `makeSale` with `orderId`. The order page is open only during hours, while the iPad has checked in within 2 minutes and isn't paused. The iPad sends its menu whenever it changes, and `Code.gs` accepts only orders that match it, so every order can be recorded as is. Calls use a plain-text POST body (a JSON content type would trigger a CORS preflight that Apps Script rejects). No secrets in `apps-script/`; the key and sheet ID live in Script Properties. A change to `Code.gs`/`Order.html` only takes effect after it's pasted into the project and each deployment gets a new version.
 - **Out of scope for now:** drink-ticket printing is on hold for budget. Don't build it.
 
 ## Style

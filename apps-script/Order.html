@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root { --navy: #013484; --sky: #01bbf3; --blue: #046bb1; --text: #093d80; --muted: #5c6b80; --line: #d6dfea; --hot: #c8563b; --hot-soft: #fcebe5; --iced-soft: #e3eff8; --sage: #5e8d49; --sage-soft: #e8f3e2; --gold-soft: #fdf6e3; --danger: #9d2424; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #fff; color: var(--text); font-family: ui-rounded, "SF Pro Rounded", "Avenir Next", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { border-bottom: 4px solid var(--sky); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  header img { height: 44px; max-width: 60vw; object-fit: contain; flex: 0 1 auto; min-width: 0; }
+  header span { color: var(--muted); font-weight: 700; font-size: .85rem; text-align: right; min-width: 0; overflow-wrap: anywhere; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px 16px 40px; }
+  h1 { font-size: 1.6rem; margin: 6px 0 4px; color: var(--navy); }
+  h2 { font-size: 1.15rem; margin: 22px 0 10px; color: var(--navy); }
+  p { line-height: 1.45; }
+  .notice { padding: 14px 16px; border-radius: 14px; background: var(--gold-soft); border: 2px solid #f2d58d; font-weight: 700; }
+  .notice.error { background: #fbeaea; border-color: #e7b3b3; color: var(--danger); }
+  .notice.ok { background: var(--sage-soft); border-color: #bcd8ae; color: #2e612f; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border: 3px solid var(--navy); border-radius: 30px; max-width: 420px; margin: 0 auto 14px; }
+  .tabs button { border: 0; border-radius: 24px; min-height: 46px; background: transparent; font: inherit; font-weight: 850; font-size: 1.1rem; cursor: pointer; color: var(--hot); }
+  .tabs button:last-child { color: var(--blue); }
+  .tabs button.on { background: var(--hot); color: #fff; }
+  .tabs button:last-child.on { background: var(--blue); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .choice { min-height: 64px; padding: 10px; border: 2px solid var(--line); border-radius: 13px; background: #fff; color: var(--text); font: inherit; font-weight: 800; cursor: pointer; text-align: center; }
+  .choice small { display: block; font-weight: 700; color: var(--muted); margin-top: 3px; }
+  .choice.on { border-color: var(--blue); background: var(--iced-soft); box-shadow: inset 0 0 0 1px var(--blue); color: #0a2e66; }
+  .choice.special { border-color: #e9a820; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips .choice { min-height: 46px; padding: 8px 14px; }
+  label.field { display: grid; gap: 6px; font-weight: 800; margin-top: 14px; }
+  input[type=text], select { min-height: 48px; border: 2px solid var(--line); border-radius: 11px; padding: 0 12px; font: inherit; font-size: 1.05rem; color: var(--text); background: #fff; }
+  label.check { display: flex; align-items: center; gap: 10px; font-weight: 800; margin-top: 14px; min-height: 44px; }
+  label.check input { width: 24px; height: 24px; accent-color: var(--navy); }
+  .summary { margin-top: 20px; padding: 14px 16px; border-radius: 14px; background: var(--iced-soft); font-weight: 750; }
+  .primary { width: 100%; min-height: 56px; margin-top: 14px; border: 0; border-radius: 13px; background: var(--blue); color: #fff; font: inherit; font-size: 1.15rem; font-weight: 850; cursor: pointer; }
+  .primary:disabled { opacity: .45; cursor: default; }
+  .order { padding: 12px 14px; border: 2px solid var(--line); border-left: 8px solid var(--blue); border-radius: 13px; margin-bottom: 10px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+  .order.ready { border-left-color: var(--sage); background: var(--sage-soft); }
+  .order.done { opacity: .65; border-left-color: var(--line); }
+  .order.declined { border-left-color: var(--hot); background: var(--hot-soft); }
+  .order b { display: block; font-size: 1.05rem; }
+  .order .status { font-weight: 850; }
+  .link { border: 0; background: none; color: var(--danger); font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; padding: 6px; }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <img src="https://jburnes-ebrew.github.io/empowering-brew/brand/header-lockup.png" alt="Empowering Brew">
+  <span id="who"></span>
+</header>
+<main>
+  <h1>Order ahead</h1>
+  <p class="muted">Order here, then pick up and pay at the coffee shop. No waiting in line.</p>
+  <div id="message" class="notice hidden" role="status"></div>
+
+  <section id="mine" class="hidden">
+    <h2>Your orders today</h2>
+    <div id="myOrders"></div>
+  </section>
+
+  <section id="orderForm" class="hidden">
+    <h2>1. Pick your drink</h2>
+    <div class="tabs" role="tablist">
+      <button type="button" data-temp="hot" class="on" role="tab">HOT</button>
+      <button type="button" data-temp="iced" role="tab">ICED</button>
+    </div>
+    <div id="items" class="grid"></div>
+
+    <div id="details" class="hidden">
+      <div id="flavorBlock" class="hidden"><h2>2. Choose the flavor</h2><div id="flavors" class="grid"></div></div>
+      <div id="removeBlock" class="hidden"><h2>Take off (optional)</h2><div id="removes" class="chips"></div></div>
+      <div id="addBlock" class="hidden"><h2>Add or swap (optional)</h2><div id="adds" class="chips"></div></div>
+      <label id="decafBlock" class="check hidden"><input type="checkbox" id="decaf"> Make it decaf</label>
+      <h2>Pickup</h2>
+      <label class="field">When will you pick it up?<select id="pickup"></select></label>
+      <label class="field">Name to call out<input type="text" id="name" maxlength="40" autocomplete="name"></label>
+      <div class="summary" id="summary"></div>
+      <button type="button" class="primary" id="place">Place order</button>
+    </div>
+  </section>
+
+</main>
+<script>
+  const STATUS = {
+    new: ['Received — students will start it soon', ''],
+    making: ['Being made now', ''],
+    ready: ['Ready! Pick up and pay at the coffee shop', 'ready'],
+    'picked-up': ['Picked up — enjoy!', 'done'],
+    'not-picked-up': ['Not picked up', 'done'],
+    declined: ['The shop could not make this one. Please stop by.', 'declined'],
+    cancelled: ['Cancelled', 'done'],
+  };
+  let page = null;
+  let temp = 'hot';
+  let pick = null; // { item, variant }
+  let option = null;
+  let changes = [];
+  let busy = false;
+  const $ = (id) => document.getElementById(id);
+
+  // Builds elements with textContent only, so nothing from the sheet is read as HTML.
+  function el(tag, props, children) {
+    const node = document.createElement(tag);
+    Object.entries(props || {}).forEach(([key, value]) => {
+      if (key === 'class') node.className = value;
+      else if (key === 'text') node.textContent = value;
+      else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
+      else node.setAttribute(key, value);
+    });
+    (children || []).forEach((child) => child && node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child));
+    return node;
+  }
+  const money = (value) => '$' + Number(value || 0).toFixed(2);
+  const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+  let noticeKind = '';
+  function say(text, kind) {
+    noticeKind = kind || '';
+    const box = $('message');
+    box.textContent = text || '';
+    box.className = 'notice' + (kind ? ' ' + kind : '') + (text ? '' : ' hidden');
+  }
+
+  function load(first) {
+    google.script.run.withSuccessHandler((result) => show(result, first)).withFailureHandler((error) => { if (first) say(error.message, 'error'); }).getOrderPage();
+  }
+
+  function show(result, first) {
+    page = result;
+    $('who').textContent = result.email.replace('@', '@\u200b'); // lets a long address wrap after the @
+    if (first) {
+      let saved = '';
+      try { saved = localStorage.getItem('eb-order-name') || ''; } catch (e) {}
+      $('name').value = saved || result.name;
+    }
+    // The plain notice is the shop-closed note; clear it when the shop opens, but leave
+    // an error or "Order placed" message in place.
+    if (!result.shop.open) say(result.shop.reason);
+    else if (!noticeKind) say('');
+    $('orderForm').classList.toggle('hidden', !result.shop.open);
+    if (result.shop.open) {
+      if (!$('pickup').options.length) result.pickupChoices.forEach((choice) => $('pickup').appendChild(el('option', { value: choice.minutes, text: choice.label })));
+      // The menu can change (a drink turned off); drop a pick that is no longer offered.
+      if (pick && !findVariant(pick.variant.id)) { pick = null; option = null; changes = []; }
+      drawItems();
+      drawDetails();
+    }
+    drawMine();
+  }
+
+  function findVariant(id) {
+    for (const item of (page.menu && page.menu.items) || []) for (const variant of item.variants) if (variant.id === id) return { item, variant };
+    return null;
+  }
+
+  // Same layout as the shop's sales screen: the hot or iced version of each drink, and treats in both.
+  function slots() {
+    return ((page.menu && page.menu.items) || []).map((item) => {
+      const variant = item.variants.find((entry) => entry.temperature === temp) || item.variants.find((entry) => entry.temperature === 'none');
+      return variant ? { item, variant } : null;
+    }).filter(Boolean);
+  }
+
+  function drawItems() {
+    const box = $('items');
+    box.replaceChildren(...slots().map(({ item, variant }) => el('button', {
+      type: 'button',
+      class: 'choice' + (pick && pick.variant.id === variant.id ? ' on' : '') + (item.special ? ' special' : ''),
+      onclick: () => { pick = { item, variant }; option = null; changes = []; drawItems(); drawDetails(); },
+    }, [item.name, el('small', { text: (item.special ? 'Monthly special · ' : '') + money(variant.price) })])));
+  }
+
+  function currentChoices() {
+    if (!pick) return { remove: [], add: [] };
+    return pick.variant.choices[option || ''] || { remove: [], add: [] };
+  }
+
+  function chipList(list) {
+    return list.map((change) => el('button', {
+      type: 'button', class: 'choice' + (changes.includes(change) ? ' on' : ''),
+      onclick: () => { changes = changes.includes(change) ? changes.filter((entry) => entry !== change) : changes.concat(change); drawDetails(); },
+    }, [(changes.includes(change) ? '✓ ' : '') + change]));
+  }
+
+  function drawDetails() {
+    $('details').classList.toggle('hidden', !pick);
+    if (!pick) return;
+    const options = pick.variant.options;
+    $('flavorBlock').classList.toggle('hidden', !options.length);
+    $('flavors').replaceChildren(...options.map((entry) => el('button', {
+      type: 'button', class: 'choice' + (option === entry.value ? ' on' : ''),
+      onclick: () => { option = entry.value; drawDetails(); },
+    }, [entry.label])));
+    const choices = currentChoices();
+    changes = changes.filter((change) => choices.remove.includes(change) || choices.add.includes(change));
+    $('removeBlock').classList.toggle('hidden', !choices.remove.length);
+    $('removes').replaceChildren(...chipList(choices.remove));
+    $('addBlock').classList.toggle('hidden', !choices.add.length);
+    $('adds').replaceChildren(...chipList(choices.add));
+    $('decafBlock').classList.toggle('hidden', pick.item.kind !== 'drink');
+    const flavor = options.find((entry) => entry.value === option);
+    const parts = [pick.variant.label, flavor && flavor.label].concat(changes, pick.item.kind === 'drink' && $('decaf').checked ? ['Decaf'] : []).filter(Boolean);
+    $('summary').textContent = parts.join(' · ') + ' — pay ' + money(pick.variant.price) + ' at pickup';
+    const needsFlavor = options.length && !option;
+    $('place').disabled = busy || needsFlavor;
+    $('place').textContent = busy ? 'Placing your order…' : needsFlavor ? 'Choose a flavor first' : 'Place order';
+  }
+
+  function drawMine() {
+    const orders = page.orders || [];
+    $('mine').classList.toggle('hidden', !orders.length);
+    $('myOrders').replaceChildren(...orders.map((order) => {
+      const [text, kind] = STATUS[order.status] || [order.status, ''];
+      const details = [order.optionLabel || order.option].concat(order.changes, order.decaf ? ['Decaf'] : []).filter(Boolean).join(' · ');
+      return el('div', { class: 'order ' + kind }, [
+        el('div', {}, [el('b', { text: order.drink }), details ? el('span', { class: 'muted', text: details }) : null, el('div', { class: 'status', text: text }), el('span', { class: 'muted', text: 'Pickup ' + time(order.pickupAt) + ' · ' + money(order.price) })]),
+        order.status === 'new' ? el('button', { type: 'button', class: 'link', text: 'Cancel', onclick: () => cancel(order) }) : null,
+      ]);
+    }));
+  }
+
+  function place() {
+    if (!pick || busy) return;
+    const name = $('name').value.trim();
+    if (!name) { say('Enter the name to call out at pickup.', 'error'); return; }
+    try { localStorage.setItem('eb-order-name', name); } catch (e) {}
+    busy = true; drawDetails();
+    google.script.run
+      .withSuccessHandler((result) => {
+        busy = false; pick = null; option = null; changes = []; $('decaf').checked = false;
+        show(result);
+        say('Order placed! Watch for "Ready" below, then pick up and pay at the coffee shop.', 'ok');
+        $('mine').scrollIntoView({ behavior: 'smooth' });
+      })
+      .withFailureHandler((error) => { busy = false; drawDetails(); say(error.message, 'error'); })
+      .placeOrder({ productId: pick.variant.id, option: option || '', changes: changes, decaf: $('decaf').checked, pickupMinutes: Number($('pickup').value), name: name });
+  }
+
+  function cancel(order) {
+    if (!confirm('Cancel your ' + order.drink + '?')) return;
+    google.script.run.withSuccessHandler((result) => { show(result); say('Order cancelled.', 'ok'); }).withFailureHandler((error) => say(error.message, 'error')).cancelOrder(order.id);
+  }
+
+  document.querySelectorAll('.tabs button').forEach((button) => button.addEventListener('click', () => {
+    temp = button.dataset.temp;
+    document.querySelectorAll('.tabs button').forEach((other) => other.classList.toggle('on', other === button));
+    pick = null; option = null; changes = [];
+    drawItems(); drawDetails();
+  }));
+  $('decaf').addEventListener('change', drawDetails);
+  $('place').addEventListener('click', place);
+  load(true);
+  setInterval(() => { if (!busy) load(false); }, 20000);
+</script>
+</body>
+</html>

@@ -5,11 +5,12 @@ import { hashPin, storageStatus, uid } from './storage';
 import { dateStamp, fullBackupText, parseFullBackup, salesCsvRows, saveFile, toCsv } from './backup';
 import { INVENTORY_CATEGORIES, SHOP_HOURS, SPECIAL_MENU_ID, optionLabel } from './data';
 import { ESTIMATE_LABELS, MEASURES, bakeryReport, finalizedCounts, overUnderReport, reorderList, busyTimes, clockLabel, currentRecipe, estimateUsage, formatNumber, formatRange, inventoryBalances, lineQuantity, onOpenDay, recipeHistory, weekStart, weeklyReport } from './estimates';
+import { OnlineOrdersPanel } from './onlineOrders';
 import { Brand, Credit, Modal, SectionHeading, dayLabel, menuItemFor, oneLine, prettyTemperature, productLabel, productName, timeLabel } from './ui';
 
 const TABS = ['products', 'recipes', 'inventory', 'reports', 'history'];
 
-export default function StaffWorkspace({ state, setState, staffName, onBack, onStartCount }) {
+export default function StaffWorkspace({ state, setState, orders, staffName, onBack, onStartCount }) {
   const [tab, setTab] = useState('products');
   const pendingCounts = state.countSessions.filter((session) => session.status === 'pending').length;
   return <main className="app-shell staff-shell">
@@ -25,7 +26,7 @@ export default function StaffWorkspace({ state, setState, staffName, onBack, onS
       {tab === 'products' && <ProductsTab state={state} setState={setState} />}
       {tab === 'recipes' && <RecipesTab state={state} setState={setState} staffName={staffName} />}
       {tab === 'inventory' && <InventoryTab state={state} setState={setState} staffName={staffName} onStartCount={onStartCount} />}
-      {tab === 'reports' && <ReportsTab state={state} setState={setState} staffName={staffName} />}
+      {tab === 'reports' && <ReportsTab state={state} setState={setState} orders={orders} staffName={staffName} />}
       {tab === 'history' && <HistoryTab state={state} />}
       <Credit />
     </section>
@@ -680,7 +681,7 @@ function CountReview({ state, session, balances, staffName, onClose, onFinish })
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-function ReportsTab({ state, setState, staffName }) {
+function ReportsTab({ state, setState, orders, staffName }) {
   const [start, setStart] = useState(() => weekStart(new Date()));
   const report = useMemo(() => weeklyReport(state, start), [state, start]);
   const shift = (weeks) => setStart((current) => { const next = new Date(current); next.setDate(next.getDate() + weeks * 7); return next; });
@@ -695,6 +696,7 @@ function ReportsTab({ state, setState, staffName }) {
   return <>
     <BackupPanel state={state} setState={setState} />
     <PinPanel state={state} setState={setState} staffName={staffName} />
+    <OnlineOrdersPanel state={state} setState={setState} orders={orders} />
     <div className="report-list-head"><h2>Reports</h2><button className="button secondary" onClick={() => sections.setOpen(allOpen ? [] : REPORT_IDS)}>{allOpen ? 'Close all' : 'Open all'}</button></div>
     <ReorderList state={state} section={sections.props('reorder')} />
     <OverUnder state={state} section={sections.props('over-under')} />
