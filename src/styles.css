@@ -72,7 +72,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .treat-button { background: #f5f9f0; }
 .grid-placeholder { border: 2px dashed var(--line); border-radius: 18px; background: #ffffff; opacity: .5; }
 
-.confirmation-rail { margin: 0 clamp(18px, 2.5vw, 30px) max(10px, env(safe-area-inset-bottom)); min-height: 64px; border-radius: 15px; background: #f1f4f8; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 8px 20px; color: #536057; }
+.confirmation-rail { min-width: 0; margin: 0 clamp(18px, 2.5vw, 30px) max(10px, env(safe-area-inset-bottom)); min-height: 64px; border-radius: 15px; background: #f1f4f8; display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 8px 20px; color: #536057; }
 .confirmation-rail.has-sale { background: var(--sage-soft); color: #244229; }
 .confirmation-message { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .confirmation-message strong { font-size: clamp(1rem, 1.8vw, 1.35rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
